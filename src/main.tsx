@@ -19,6 +19,9 @@ function App() {
   const [room, setRoom] = useState<RoomView | null>(null);
   const [error, setError] = useState("");
   const [name, setName] = useState(localStorage.getItem("va-name") ?? "");
+  const [avatar, setAvatar] = useState(
+    Number(localStorage.getItem("va-avatar") ?? 0),
+  );
   const [joining, setJoining] = useState(false);
   const [connected, setConnected] = useState(true);
   const [sound, setSound] = useState(
@@ -26,7 +29,14 @@ function App() {
   );
   const [seconds, setSeconds] = useState(0);
   const socketRef = useRef<Socket | null>(null);
-  const lastRef = useRef("");
+  const lastGameRef = useRef<{
+    hand: number;
+    phase: string;
+    board: number;
+    turn: number;
+    pot: number;
+    allIns: string[];
+  } | null>(null);
 
   useEffect(() => {
     if (!tableCode && !joinCode) return;
@@ -62,21 +72,42 @@ function App() {
     });
     socket.on("disconnect", () => setConnected(false));
     socket.on("room:state", (next: RoomView) => {
-      const turnKey = `${next.game?.hand}:${next.game?.phase}:${next.game?.turn}`;
-      if (
-        lastRef.current &&
-        turnKey !== lastRef.current &&
-        next.game?.turn !== undefined &&
-        next.game.turn >= 0
-      )
-        playSound("turn", localStorage.getItem("va-sound") !== "off");
-      if (
-        lastRef.current &&
-        next.game?.phase === "showdown" &&
-        !lastRef.current.includes("showdown")
-      )
-        playSound("win", localStorage.getItem("va-sound") !== "off");
-      lastRef.current = turnKey;
+      const current = next.game;
+      const previous = lastGameRef.current;
+      const enabled = localStorage.getItem("va-sound") !== "off";
+      if (current && previous) {
+        const newAllIn = current.players.some(
+          (player) =>
+            player.lastAction === "ALL IN" &&
+            (current.hand !== previous.hand ||
+              !previous.allIns.includes(player.id)),
+        );
+        if (newAllIn) playSound("allin", enabled);
+        if (current.phase === "showdown" && previous.phase !== "showdown") {
+          if (newAllIn) setTimeout(() => playSound("win", enabled), 450);
+          else playSound("win", enabled);
+        } else if (
+          current.hand !== previous.hand ||
+          current.board.length > previous.board
+        )
+          playSound("deal", enabled);
+        else if (current.pot > previous.pot && !newAllIn)
+          playSound("chip", enabled);
+        else if (current.turn !== previous.turn && current.turn >= 0)
+          playSound("turn", enabled);
+      }
+      lastGameRef.current = current
+        ? {
+            hand: current.hand,
+            phase: current.phase,
+            board: current.board.length,
+            turn: current.turn,
+            pot: current.pot,
+            allIns: current.players
+              .filter((player) => player.lastAction === "ALL IN")
+              .map((player) => player.id),
+          }
+        : null;
       setRoom(next);
       setError("");
     });
@@ -105,7 +136,6 @@ function App() {
   function emit(event: string, payload: object) {
     socketRef.current?.emit(event, payload, (result: Ack) => {
       if (result?.error) setError(result.error);
-      else if (event === "player:action") playSound("chip", sound);
     });
   }
   function join() {
@@ -119,7 +149,7 @@ function App() {
   function emitJoin(code: string, playerName: string) {
     socketRef.current?.emit(
       "player:join",
-      { code, name: playerName },
+      { code, name: playerName, avatar },
       (result: Ack) => {
         if (result?.error) {
           setError(result.error);
@@ -155,6 +185,10 @@ function App() {
           seconds={seconds}
           connected={connected}
           onAction={(type, total) => emit("player:action", { type, total })}
+          onAvatarChange={(choice) => emit("player:avatar", { avatar: choice })}
+          onSocial={(kind, content) => emit("player:social", { kind, content })}
+          onShow={() => emit("player:show", {})}
+          onMuck={() => emit("player:muck", {})}
           sound={sound}
           toggleSound={toggleSound}
         />
@@ -162,6 +196,11 @@ function App() {
         <Join
           code={joinCode!}
           name={name}
+          avatar={avatar}
+          setAvatar={(choice) => {
+            setAvatar(choice);
+            localStorage.setItem("va-avatar", String(choice));
+          }}
           setName={setName}
           joining={joining}
           onJoin={join}

@@ -62,16 +62,51 @@ try {
   const a = await alex.emitWithAck("player:join", {
     code: room.code,
     name: "Alex",
+    avatar: 4,
   });
   const b = await sam.emitWithAck("player:join", {
     code: room.code,
     name: "Sam",
+    avatar: 2,
   });
   assert.equal(a.ok, true);
   assert.equal(b.ok, true);
   await waitFor(
     () => state.get("host")?.roster.length === 2,
     "two joined players",
+  );
+  assert.equal(state.get("host").roster[0].avatar, 4);
+  assert.deepEqual(await alex.emitWithAck("player:avatar", { avatar: 5 }), {
+    ok: true,
+  });
+  await waitFor(
+    () => state.get("host")?.roster[0].avatar === 5,
+    "avatar update",
+  );
+  assert.ok((await alex.emitWithAck("player:avatar", { avatar: 8 })).error);
+  assert.deepEqual(
+    await alex.emitWithAck("player:social", {
+      kind: "chat",
+      content: "Good luck!",
+    }),
+    { ok: true },
+  );
+  assert.deepEqual(
+    await sam.emitWithAck("player:social", { kind: "reaction", content: "👏" }),
+    { ok: true },
+  );
+  await waitFor(
+    () => state.get("host")?.social.length === 2,
+    "table reactions",
+  );
+  assert.equal(state.get("host").social[0].content, "Good luck!");
+  assert.ok(
+    (await alex.emitWithAck("player:social", { kind: "chat", content: "spam" }))
+      .error,
+  );
+  assert.ok(
+    (await host.emitWithAck("player:social", { kind: "chat", content: "host" }))
+      .error,
   );
   assert.deepEqual(await host.emitWithAck("host:deal", {}), { ok: true });
   await waitFor(
@@ -113,6 +148,20 @@ try {
     () => state.get("host")?.game?.phase === "showdown",
     "showdown",
   );
+  assert.equal(state.get("host").game.players[0].cards, null);
+  assert.equal(
+    state.get("host").game.players[1].cards,
+    null,
+    "uncontested winner should be mucked by default",
+  );
+  assert.equal(state.get("alex").game.canShow, true);
+  assert.ok((await sam.emitWithAck("player:show", {})).error);
+  assert.deepEqual(await alex.emitWithAck("player:show", {}), { ok: true });
+  await waitFor(
+    () => state.get("host")?.game?.players[0].cards?.length === 2,
+    "winner chose Show",
+  );
+  assert.ok((await alex.emitWithAck("player:muck", {})).error);
   assert.deepEqual(await host.emitWithAck("host:deal", {}), { ok: true });
   await waitFor(
     () => state.get("host")?.game?.players.length === 3,

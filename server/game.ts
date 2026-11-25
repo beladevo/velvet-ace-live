@@ -44,6 +44,8 @@ export class PokerGame {
   winners: Winner[];
   currentBet: number;
   minRaise = BIG_BLIND;
+  shownSeat: number | null = null;
+  muckLocked = false;
 
   constructor(
     seats: GameSeat[],
@@ -72,6 +74,8 @@ export class PokerGame {
     this.pot = 0;
     this.history = [];
     this.winners = [];
+    this.shownSeat = null;
+    this.muckLocked = false;
     this.currentBet = 0;
   }
 
@@ -297,6 +301,36 @@ export class PokerGame {
     this.turn = -1;
   }
 
+  showUncontested(playerId: string): boolean {
+    const winner = this.winners[0];
+    if (
+      this.phase !== "showdown" ||
+      winner?.name !== "Uncontested" ||
+      this.players[winner.seat]?.id !== playerId ||
+      this.shownSeat !== null ||
+      this.muckLocked
+    )
+      return false;
+    this.shownSeat = winner.seat;
+    this.emit();
+    return true;
+  }
+
+  muckUncontested(playerId: string): boolean {
+    const winner = this.winners[0];
+    if (
+      this.phase !== "showdown" ||
+      winner?.name !== "Uncontested" ||
+      this.players[winner.seat]?.id !== playerId ||
+      this.shownSeat !== null ||
+      this.muckLocked
+    )
+      return false;
+    this.muckLocked = true;
+    this.emit();
+    return true;
+  }
+
   showdown() {
     const contenders = this.players.filter(
       (player) => !player.folded && player.cards.length,
@@ -360,7 +394,14 @@ export class PokerGame {
   }
 
   snapshot(viewerId: string | null = null): GameView {
-    const reveal = this.phase === "showdown";
+    const reveal =
+      this.phase === "showdown" && this.winners[0]?.name !== "Uncontested";
+    const muckedSeat =
+      this.phase === "showdown" &&
+      this.winners[0]?.name === "Uncontested" &&
+      this.shownSeat === null
+        ? this.winners[0].seat
+        : -1;
     return {
       phase: this.phase,
       hand: this.hand,
@@ -380,8 +421,11 @@ export class PokerGame {
         folded: player.folded,
         lastAction: player.lastAction,
         cardCount: player.cards.length,
+        mucked: player.seat === muckedSeat,
         cards:
-          viewerId === player.id || (reveal && !player.folded)
+          viewerId === player.id ||
+          (reveal && !player.folded) ||
+          this.shownSeat === player.seat
             ? player.cards
             : null,
       })),
@@ -391,6 +435,11 @@ export class PokerGame {
           : this.legalActions(
               this.players.findIndex((player) => player.id === viewerId),
             ),
+      canShow:
+        viewerId !== null &&
+        muckedSeat >= 0 &&
+        this.players[muckedSeat].id === viewerId &&
+        !this.muckLocked,
     };
   }
 }

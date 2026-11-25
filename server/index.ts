@@ -95,8 +95,22 @@ io.on("connection", (socket) => {
   socket.on("host:watch", ({ code, key } = {}, ack = () => {}) =>
     ack(rooms.bindHost(socket, code, key)),
   );
-  socket.on("player:join", ({ code, name, token } = {}, ack = () => {}) =>
-    ack(rooms.joinPlayer(socket, code, name, token)),
+  socket.on(
+    "player:join",
+    ({ code, name, token, avatar } = {}, ack = () => {}) =>
+      ack(rooms.joinPlayer(socket, code, name, token, avatar)),
+  );
+  socket.on("player:avatar", ({ avatar } = {}, ack = () => {}) =>
+    ack(rooms.setAvatar(socket, avatar)),
+  );
+  socket.on("player:show", (_payload = {}, ack = () => {}) =>
+    ack(rooms.show(socket)),
+  );
+  socket.on("player:muck", (_payload = {}, ack = () => {}) =>
+    ack(rooms.muck(socket)),
+  );
+  socket.on("player:social", ({ kind, content } = {}, ack = () => {}) =>
+    ack(rooms.social(socket, kind, content)),
   );
   socket.on("player:action", ({ type, total } = {}, ack = () => {}) =>
     ack(rooms.act(socket, type, total)),

@@ -24,6 +24,7 @@ export interface PlayerView {
   lastAction: string;
   cardCount: number;
   cards: Card[] | null;
+  mucked: boolean;
 }
 export interface HistoryEntry {
   message: string;
@@ -46,18 +47,31 @@ export interface GameView {
   history: HistoryEntry[];
   players: PlayerView[];
   legal: LegalActions | null;
+  canShow: boolean;
 }
 export interface RosterView {
   id: string;
   name: string;
   connected: boolean;
   seat: number;
+  avatar: number;
+}
+export type SocialKind = "chat" | "reaction";
+export interface SocialEvent {
+  id: string;
+  playerId: string;
+  name: string;
+  seat: number;
+  kind: SocialKind;
+  content: string;
+  createdAt: number;
 }
 export interface RoomView {
   code: string;
   role: "host" | "player";
   playerId: string | null;
   roster: RosterView[];
+  social: SocialEvent[];
   joinUrl: string;
   game: GameView | null;
   deadline: number | null;

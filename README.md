@@ -28,6 +28,6 @@ The browser and server ship from one repo. Their boundary makes a later mobile w
 
 ## Scope
 
-This release covers guest joining, QR invites, a six-seat private table, blinds, no limit betting, fold/check/call/bet/raise/all in, flop/turn/river, showdown, side pots, split pots, turn timeout and reconnect. The supplied Zynga product specification guides table language and flow. Its wallet, tournaments, progression, shop and matchmaking proposals are not implemented.
+This release covers guest joining, QR invites, a six-seat private table, blinds, no limit betting, fold/check/call/bet/raise/all in, flop/turn/river, showdown, side pots, split pots, turn timeout and reconnect. Players can choose a character, react or send a short table message, and keep their hole cards face down until they press and hold to peek. A personal setting can always reveal them. Uncontested winners can show or muck, while contested showdown cards reveal automatically. The table has card, chip, turn, all-in and win motion with optional synthesized sound. The supplied Zynga product specification guides table language and flow. Its wallet, tournaments, progression, shop and matchmaking proposals are not implemented.
 
 See `AGENTS.md` and `.agents/skills/velvet-ace-development/SKILL.md` for project coding rules.

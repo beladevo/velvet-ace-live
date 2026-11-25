@@ -1,6 +1,11 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import type { Socket } from "socket.io";
-import type { ActionType, RoomView } from "../shared/types.js";
+import type {
+  ActionType,
+  RoomView,
+  SocialEvent,
+  SocialKind,
+} from "../shared/types.js";
 import { PokerGame } from "./game.js";
 
 interface RosterPlayer {
@@ -9,6 +14,8 @@ interface RosterPlayer {
   name: string;
   connected: boolean;
   seat: number;
+  avatar: number;
+  lastSocialAt: number;
 }
 interface Room {
   id: string;
@@ -20,6 +27,7 @@ interface Room {
   timer: ReturnType<typeof setTimeout> | null;
   turnKey: string | null;
   createdAt: number;
+  social: SocialEvent[];
 }
 
 const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -33,6 +41,11 @@ const cleanName = (value: unknown) =>
     .trim()
     .replace(/[<>\u0000-\u001f]/g, "")
     .slice(0, 18);
+const reactions = new Set(["😂", "🔥", "👏", "😮", "🍀", "❤️"]);
+const validAvatar = (value: unknown): number =>
+  Number.isInteger(value) && Number(value) >= 0 && Number(value) < 6
+    ? Number(value)
+    : 0;
 
 export class RoomManager {
   private rooms = new Map<string, Room>();
@@ -56,6 +69,7 @@ export class RoomManager {
       timer: null,
       turnKey: null,
       createdAt: Date.now(),
+      social: [],
     };
     this.rooms.set(id, room);
     return room;
@@ -84,6 +98,7 @@ export class RoomManager {
     id: unknown,
     name: unknown,
     existingToken?: unknown,
+    avatar?: unknown,
   ) {
     const room = this.get(id);
     if (!room) return { error: "Table not found. Check the code on the TV." };
@@ -102,6 +117,8 @@ export class RoomManager {
         name: displayName,
         connected: false,
         seat: room.roster.length,
+        avatar: validAvatar(avatar),
+        lastSocialAt: 0,
       };
       room.roster.push(player);
     }
@@ -210,13 +227,88 @@ export class RoomManager {
     return { ok: true };
   }
 
+  setAvatar(socket: Socket, choice: unknown) {
+    const room = this.get(socket.data.roomId);
+    const player = room?.roster.find(
+      (item) => item.id === socket.data.playerId,
+    );
+    if (
+      !room ||
+      !player ||
+      socket.data.role !== "player" ||
+      !Number.isInteger(choice) ||
+      Number(choice) < 0 ||
+      Number(choice) > 5
+    )
+      return { error: "Choose one of the available characters." };
+    player.avatar = Number(choice);
+    this.send(room);
+    return { ok: true };
+  }
+
+  show(socket: Socket) {
+    const room = this.get(socket.data.roomId);
+    if (
+      !room?.game ||
+      socket.data.role !== "player" ||
+      !room.game.showUncontested(socket.data.playerId)
+    )
+      return { error: "You cannot show cards now." };
+    return { ok: true };
+  }
+
+  muck(socket: Socket) {
+    const room = this.get(socket.data.roomId);
+    if (
+      !room?.game ||
+      socket.data.role !== "player" ||
+      !room.game.muckUncontested(socket.data.playerId)
+    )
+      return { error: "You cannot muck cards now." };
+    return { ok: true };
+  }
+
+  social(socket: Socket, kind: unknown, content: unknown) {
+    const room = this.get(socket.data.roomId);
+    const player = room?.roster.find(
+      (item) => item.id === socket.data.playerId,
+    );
+    if (!room || !player || socket.data.role !== "player")
+      return { error: "Join a table first." };
+    const now = Date.now();
+    if (now - player.lastSocialAt < 1200)
+      return { error: "Give everyone a moment between messages." };
+    if (kind !== "chat" && kind !== "reaction")
+      return { error: "Invalid message." };
+    const text = String(content ?? "")
+      .trim()
+      .replace(/[<>\u0000-\u001f\u007f]/g, "")
+      .slice(0, kind === "chat" ? 72 : 4);
+    if (!text || (kind === "reaction" && !reactions.has(text)))
+      return { error: "Choose a reaction or enter a short message." };
+    player.lastSocialAt = now;
+    room.social.push({
+      id: randomUUID(),
+      playerId: player.id,
+      name: player.name,
+      seat: player.seat,
+      kind: kind as SocialKind,
+      content: text,
+      createdAt: now,
+    });
+    room.social = room.social.slice(-12);
+    this.send(room);
+    return { ok: true };
+  }
+
   send(room: Room): void {
     const game = room.game;
-    const roster = room.roster.map(({ id, name, connected, seat }) => ({
+    const roster = room.roster.map(({ id, name, connected, seat, avatar }) => ({
       id,
       name,
       connected,
       seat,
+      avatar,
     }));
     for (const socket of room.sockets.values()) {
       const viewerId =
@@ -226,6 +318,7 @@ export class RoomManager {
         role: socket.data.role,
         playerId: viewerId,
         roster,
+        social: room.social,
         joinUrl: this.joinUrl(room),
         game: game?.snapshot(viewerId) ?? null,
         deadline: room.deadline,

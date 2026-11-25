@@ -38,6 +38,19 @@ test("private cards never enter the table or another player snapshot", () => {
   assert.ok(viewer.players.slice(1).every((player) => player.cards === null));
 });
 
+test("uncontested hands stay mucked unless the winner chooses Show", () => {
+  const game = new PokerGame(seats(2));
+  game.startHand();
+  assert.equal(game.turn, 0);
+  game.act(0, "fold");
+  assert.equal(game.phase, "showdown");
+  assert.ok(game.snapshot().players.every((player) => player.cards === null));
+  assert.equal(game.snapshot("player-1").canShow, true);
+  assert.equal(game.muckUncontested("player-1"), true);
+  assert.equal(game.snapshot("player-1").canShow, false);
+  assert.equal(game.showUncontested("player-1"), false);
+});
+
 test("random legal games conserve all chips", () => {
   for (let simulation = 0; simulation < 40; simulation++) {
     const game = new PokerGame(seats(2 + (simulation % 5)));

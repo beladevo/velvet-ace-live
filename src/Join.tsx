@@ -1,13 +1,17 @@
-import { Brand } from "./ui";
+import { AvatarPicker, Brand } from "./ui";
 export function Join({
   code,
   name,
+  avatar,
+  setAvatar,
   setName,
   joining,
   onJoin,
 }: {
   code: string;
   name: string;
+  avatar: number;
+  setAvatar: (value: number) => void;
   setName: (value: string) => void;
   joining: boolean;
   onJoin: () => void;
@@ -34,6 +38,8 @@ export function Join({
             placeholder="What should we call you?"
             autoComplete="nickname"
           />
+          <label>CHOOSE YOUR CHARACTER</label>
+          <AvatarPicker value={avatar} onChange={setAvatar} />
           <button className="gold-button" disabled={joining}>
             {joining ? "JOINING…" : "JOIN TABLE →"}
           </button>
