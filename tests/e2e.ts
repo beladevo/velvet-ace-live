@@ -16,8 +16,8 @@ const child = spawn(process.execPath, ["dist/server/index.js"], {
 });
 const sockets = [];
 const state = new Map();
-const waitFor = async (predicate, label) => {
-  const until = Date.now() + 5000;
+const waitFor = async (predicate, label, timeout = 5000) => {
+  const until = Date.now() + timeout;
   while (!(await predicate())) {
     if (Date.now() > until) throw new Error(`Timed out waiting for ${label}`);
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -108,10 +108,9 @@ try {
     (await host.emitWithAck("player:social", { kind: "chat", content: "host" }))
       .error,
   );
-  assert.deepEqual(await host.emitWithAck("host:deal", {}), { ok: true });
   await waitFor(
     () => state.get("host")?.game?.phase === "preflop",
-    "dealt cards",
+    "first hand dealt automatically",
   );
   const table = state.get("host").game;
   const aView = state.get("alex").game;
@@ -162,19 +161,24 @@ try {
     "winner chose Show",
   );
   assert.ok((await alex.emitWithAck("player:muck", {})).error);
-  assert.deepEqual(await host.emitWithAck("host:deal", {}), { ok: true });
+  assert.ok(state.get("host").autoDealAt > Date.now());
   await waitFor(
-    () => state.get("host")?.game?.players.length === 3,
-    "late player seated",
+    () =>
+      state.get("host")?.game?.hand === 2 &&
+      state.get("host")?.game?.players.length === 3,
+    "next hand dealt automatically with late player",
+    10000,
   );
   const nextHand = state.get("host").game;
+  assert.ok(nextHand.players.every((player) => player.cards === null));
+  assert.equal(state.get("host").autoDealAt, null);
   assert.equal(
     nextHand.players.reduce((sum, player) => sum + player.stack, 0) +
       nextHand.pot,
     4500,
   );
   console.log(
-    "E2E passed: QR, real-time joins, private cards, turn enforcement, betting and late seating.",
+    "E2E passed: QR, real-time joins, private cards, turn enforcement, automatic hands and late seating.",
   );
 } finally {
   sockets.forEach((socket) => socket.disconnect());

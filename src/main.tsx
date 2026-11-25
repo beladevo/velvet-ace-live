@@ -175,7 +175,6 @@ function App() {
           room={room}
           seconds={seconds}
           connected={connected}
-          onDeal={(fresh) => emit("host:deal", { fresh })}
           sound={sound}
           toggleSound={toggleSound}
         />

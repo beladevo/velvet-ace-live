@@ -729,6 +729,31 @@ button:disabled {
     sans-serif;
   box-shadow: 0 0 20px #f0c67577;
 }
+.auto-deal {
+  min-width: 110px;
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  padding: 7px 16px;
+  border: 1px solid #e2c78188;
+  border-radius: 11px;
+  background: #42203cd9;
+  box-shadow: 0 0 22px #e6b9633d;
+  span {
+    color: $gold;
+    font:
+      600 11px Oswald,
+      sans-serif;
+    letter-spacing: 0.16em;
+  }
+  strong {
+    color: $cream;
+    font:
+      500 27px Oswald,
+      sans-serif;
+    line-height: 1;
+  }
+}
 .urgent {
   color: #ff7282 !important;
   border-color: #ff7282 !important;

@@ -75,5 +75,6 @@ export interface RoomView {
   joinUrl: string;
   game: GameView | null;
   deadline: number | null;
+  autoDealAt: number | null;
 }
 export type Result = { ok: true } | { error: string };

@@ -26,6 +26,9 @@ interface Room {
   deadline: number | null;
   timer: ReturnType<typeof setTimeout> | null;
   turnKey: string | null;
+  autoTimer: ReturnType<typeof setTimeout> | null;
+  autoKey: string | null;
+  autoDealAt: number | null;
   createdAt: number;
   social: SocialEvent[];
 }
@@ -68,6 +71,9 @@ export class RoomManager {
       deadline: null,
       timer: null,
       turnKey: null,
+      autoTimer: null,
+      autoKey: null,
+      autoDealAt: null,
       createdAt: Date.now(),
       social: [],
     };
@@ -169,6 +175,10 @@ export class RoomManager {
     const room = this.get(socket.data.roomId);
     if (!room || socket.data.role !== "host")
       return { error: "Only the table host can deal." };
+    return this.deal(room, fresh);
+  }
+
+  private deal(room: Room, fresh = false) {
     const ready = room.roster.filter((player) => player.connected);
     if (ready.length < 2)
       return { error: "At least two connected players are needed." };
@@ -302,6 +312,8 @@ export class RoomManager {
   }
 
   send(room: Room): void {
+    this.scheduleTurn(room);
+    this.scheduleAutoDeal(room);
     const game = room.game;
     const roster = room.roster.map(({ id, name, connected, seat, avatar }) => ({
       id,
@@ -322,10 +334,53 @@ export class RoomManager {
         joinUrl: this.joinUrl(room),
         game: game?.snapshot(viewerId) ?? null,
         deadline: room.deadline,
+        autoDealAt: room.autoDealAt,
       };
       socket.emit("room:state", view);
     }
-    this.scheduleTurn(room);
+  }
+
+  private scheduleAutoDeal(room: Room): void {
+    const game = room.game;
+    const phase = game?.phase;
+    const ready = room.roster.filter((player) => player.connected);
+    const eligible =
+      game?.players.filter((player) => player.stack > 0).length ?? 0;
+    const canDeal =
+      ready.length >= 2 &&
+      (!game ||
+        phase === "waiting" ||
+        phase === "showdown" ||
+        phase === "gameover");
+    const key = canDeal
+      ? `${phase ?? "waiting"}:${game?.hand ?? 0}:${ready.map((player) => player.id).join(",")}`
+      : null;
+    if (room.autoKey === key) return;
+    if (room.autoTimer) clearTimeout(room.autoTimer);
+    room.autoKey = key;
+    room.autoTimer = null;
+    const delay =
+      phase === "showdown"
+        ? eligible < 2
+          ? 10000
+          : 7000
+        : phase === "gameover"
+          ? 10000
+          : 2500;
+    room.autoDealAt = key ? Date.now() + delay : null;
+    if (!key) return;
+    room.autoTimer = setTimeout(() => {
+      if (room.autoKey !== key) return;
+      room.autoKey = null;
+      room.autoTimer = null;
+      room.autoDealAt = null;
+      this.deal(
+        room,
+        phase === "gameover" || (phase === "showdown" && eligible < 2),
+      );
+    }, delay);
+    for (const socket of room.sockets.values())
+      socket.emit("room:auto-deal", room.autoDealAt);
   }
 
   scheduleTurn(room: Room): void {
@@ -361,6 +416,7 @@ export class RoomManager {
         Date.now() - room.createdAt > 8 * 60 * 60 * 1000
       ) {
         if (room.timer) clearTimeout(room.timer);
+        if (room.autoTimer) clearTimeout(room.autoTimer);
         this.rooms.delete(id);
       }
   }

@@ -121,6 +121,8 @@ export class PokerGame {
     this.board = [];
     this.pot = 0;
     this.winners = [];
+    this.shownSeat = null;
+    this.muckLocked = false;
     this.phase = "preflop";
     for (const player of this.players)
       Object.assign(player, {

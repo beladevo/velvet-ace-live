@@ -5,14 +5,12 @@ export function Table({
   room,
   seconds,
   connected,
-  onDeal,
   sound,
   toggleSound,
 }: {
   room: RoomView | null;
   seconds: number;
   connected: boolean;
-  onDeal: (fresh: boolean) => void;
   sound: boolean;
   toggleSound: () => void;
 }) {
@@ -73,8 +71,10 @@ export function Table({
       </main>
     );
   const game = room.game;
-  const lobby = !game || game.phase === "waiting" || game.phase === "gameover";
   const ready = room.roster.filter((item) => item.connected).length;
+  const autoSeconds = room.autoDealAt
+    ? Math.max(0, Math.ceil((room.autoDealAt - now) / 1000))
+    : null;
   const seats = Array.from(
     { length: 6 },
     (_, index) => game?.players[index] ?? room.roster[index],
@@ -222,22 +222,18 @@ export function Table({
           </strong>
         </div>
         <div className="table-bottom-actions">
-          {lobby || game?.phase === "showdown" ? (
-            <button
-              className="gold-button"
-              disabled={ready < 2}
-              onClick={() => onDeal(!game || game.phase === "gameover")}
-            >
-              {game?.phase === "showdown"
-                ? "DEAL NEXT HAND"
-                : "DEAL FIRST HAND"}{" "}
-              <span>♠</span>
-            </button>
-          ) : (
+          {autoSeconds !== null ? (
+            <div className="auto-deal" aria-live="polite">
+              <span>
+                {game?.phase === "showdown" ? "NEXT HAND" : "AUTO DEAL"}
+              </span>
+              <strong>{autoSeconds}s</strong>
+            </div>
+          ) : game?.turn !== undefined && game.turn >= 0 ? (
             <span className={`countdown ${seconds <= 10 ? "urgent" : ""}`}>
               {seconds}s
             </span>
-          )}
+          ) : null}
         </div>
       </div>
       <aside className="join-widget">

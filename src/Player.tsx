@@ -338,7 +338,9 @@ export function Player({
             </strong>
             <small>
               {game?.phase === "showdown"
-                ? "The dealer will start the next hand."
+                ? room.autoDealAt
+                  ? `Next hand starts automatically in ${Math.max(0, Math.ceil((room.autoDealAt - now) / 1000))}s.`
+                  : "Waiting for another player to continue."
                 : "Your cards are private on this device."}
             </small>
             {game?.canShow && (
