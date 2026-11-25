@@ -4,20 +4,38 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --watch server/index.js",
-    "start": "node server/index.js",
-    "test": "node --test tests/*.test.js",
-    "test:e2e": "node tests/e2e.mjs",
-    "check": "node --check server/index.js && node --check server/game.js && node --check server/rooms.js && node --check public/app.js"
+    "dev": "npm run build:client && concurrently -k \"vite build --watch\" \"tsx watch server/index.ts\"",
+    "build:client": "vite build",
+    "build:server": "tsc -p tsconfig.server.json",
+    "typecheck": "tsc --noEmit -p tsconfig.client.json && tsc --noEmit -p tsconfig.server.json",
+    "build": "npm run typecheck && npm run build:client && npm run build:server",
+    "prestart": "npm run build",
+    "start": "node dist/server/index.js",
+    "test": "tsx --test tests/*.test.ts",
+    "test:e2e": "npm run build && tsx tests/e2e.ts",
+    "format": "prettier --write src shared server tests index.html vite.config.ts tsconfig*.json package.json README.md AGENTS.md",
+    "format:check": "prettier --check src shared server tests index.html vite.config.ts tsconfig*.json package.json README.md AGENTS.md"
   },
   "dependencies": {
     "qrcode": "^1.5.4",
-    "socket.io": "^4.8.1"
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.4"
   },
   "engines": {
     "node": ">=22"
   },
   "devDependencies": {
-    "socket.io-client": "^4.8.4"
+    "@types/node": "^26.6.10",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.3.3",
+    "@types/react-dom": "^19.3.0",
+    "concurrently": "^10.0.7",
+    "prettier": "^3.10.1",
+    "sass": "^1.108.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
   }
 }

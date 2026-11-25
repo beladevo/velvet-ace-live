@@ -1,22 +1,33 @@
 # Velvet Ace Live
 
-A local network Texas Hold'em game for a TV and 2–6 real players. The TV owns a room and shows the table and joining QR code. Each player scans the code, chooses a name and plays privately from their phone. The server owns the deck, turn order, betting and payouts; private cards are sent only to the matching player.
+A private, real time Texas Hold’em table for a TV and 2–6 phones. The TV shows the table and a QR code; each player sees private hole cards and betting controls on their phone. All chips are fictional.
 
-## Run
+## Run locally
+
+Requires Node.js 22 or later. In the repository:
 
 ```bash
-npm install
+npm ci
 npm start
 ```
 
-Open the printed **table URL** on the TV or computer. Phones must be on the same network and able to reach the server's IP and port. Scan the QR code shown on the TV. Two players are enough to start; up to six can join. Set `PORT` and optionally `PUBLIC_BASE_URL` when the detected LAN address is not reachable from phones.
+Open the address printed by the server on the TV, then create a table. Players on the same Wi-Fi scan the QR code. If the detected LAN address is wrong, set `PUBLIC_BASE_URL` to the address the phones can reach. `PORT` defaults to `4173`.
 
-Example: `PUBLIC_BASE_URL=http://192.168.1.25:4173 npm start`.
+For active development, use `npm run dev`. To verify changes, run `npm run build`, `npm test` and `npm run test:e2e`.
 
 ## Architecture
 
-`server/game.js` contains the poker state machine and hand evaluation. `server/rooms.js` owns room membership and sessions. `server/index.js` provides HTTP and Socket.IO transport. `public/app.js` renders separate TV and phone views. The design uses custom CSS and inline SVG, with no frontend build step. The server process is the current source of truth; rooms live in memory and disappear on restart. This separation makes a mobile wrapper or hosted deployment possible later.
+- `src/` — React, strict TypeScript, SCSS, TV and phone views.
+- `shared/types.ts` — public game and room snapshots.
+- `server/game.ts` and `server/cards.ts` — authoritative Hold’em rules, crypto shuffled deck and integer chip accounting.
+- `server/rooms.ts` — private rooms, seats, reconnect tokens and turn deadlines.
+- `server/index.ts` — HTTP, QR generation and Socket.IO transport.
+- `public/assets/` — original generated casino, dealer and avatar artwork.
 
-## Rules and safety
+The browser and server ship from one repo. Their boundary makes a later mobile wrapper straightforward. Rooms and guest identities currently live in memory and disappear when the server restarts. This is a local network game; hosting it on the public internet needs TLS, persistent identities and abuse controls.
 
-No-limit Texas Hold'em with 10/20 blinds, 1,500 fictional starting chips, side pots, split pots, all-ins and 35-second turns. Disconnected players are checked or folded when their turn expires. No accounts, payment or real money. For internet exposure beyond a trusted local network, add TLS, persistent storage, identity and rate limiting before deployment.
+## Scope
+
+This release covers guest joining, QR invites, a six-seat private table, blinds, no limit betting, fold/check/call/bet/raise/all in, flop/turn/river, showdown, side pots, split pots, turn timeout and reconnect. The supplied Zynga product specification guides table language and flow. Its wallet, tournaments, progression, shop and matchmaking proposals are not implemented.
+
+See `AGENTS.md` and `.agents/skills/velvet-ace-development/SKILL.md` for project coding rules.
