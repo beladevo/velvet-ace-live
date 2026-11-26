@@ -76,23 +76,27 @@ function App() {
       const previous = lastGameRef.current;
       const enabled = localStorage.getItem("va-sound") !== "off";
       if (current && previous) {
+        const addedChips =
+          current.hand === previous.hand
+            ? Math.max(0, current.pot - previous.pot)
+            : 0;
+        if (addedChips > 0) playSound("chip", enabled, addedChips);
         const newAllIn = current.players.some(
           (player) =>
             player.lastAction === "ALL IN" &&
             (current.hand !== previous.hand ||
               !previous.allIns.includes(player.id)),
         );
-        if (newAllIn) playSound("allin", enabled);
+        if (newAllIn)
+          setTimeout(() => playSound("allin", enabled), addedChips ? 250 : 0);
         if (current.phase === "showdown" && previous.phase !== "showdown") {
-          if (newAllIn) setTimeout(() => playSound("win", enabled), 450);
+          if (newAllIn) setTimeout(() => playSound("win", enabled), 750);
           else playSound("win", enabled);
         } else if (
           current.hand !== previous.hand ||
           current.board.length > previous.board
         )
           playSound("deal", enabled);
-        else if (current.pot > previous.pot && !newAllIn)
-          playSound("chip", enabled);
         else if (current.turn !== previous.turn && current.turn >= 0)
           playSound("turn", enabled);
       }
@@ -165,6 +169,7 @@ function App() {
     const next = !sound;
     setSound(next);
     localStorage.setItem("va-sound", next ? "on" : "off");
+    if (next) playSound("chip", true, 100);
   };
   return (
     <>
