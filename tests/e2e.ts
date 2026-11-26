@@ -11,6 +11,7 @@ const child = spawn(process.execPath, ["dist/server/index.js"], {
     PORT: String(port),
     HOST: "127.0.0.1",
     PUBLIC_BASE_URL: base,
+    VIP_FLOP_INSIGHT_ENABLED: "true",
   },
   stdio: ["ignore", "pipe", "pipe"],
 });
@@ -61,7 +62,7 @@ try {
   const sam = await connect("sam");
   const a = await alex.emitWithAck("player:join", {
     code: room.code,
-    name: "Alex",
+    name: "beladev",
     avatar: 4,
   });
   const b = await sam.emitWithAck("player:join", {
@@ -123,6 +124,9 @@ try {
   assert.equal(aView.players[1].cards, null);
   assert.equal(bView.players[0].cards, null);
   assert.equal(bView.players[1].cards.length, 2);
+  assert.equal(state.get("host").insight, null);
+  assert.equal(state.get("alex").insight, null);
+  assert.equal(state.get("sam").insight, null);
   assert.deepEqual(await sam.emitWithAck("player:action", { type: "fold" }), {
     error: "That action is not available now.",
   });
@@ -140,6 +144,29 @@ try {
     state.get("kim").game.players.some((player) => player.name === "Kim"),
     false,
   );
+  assert.deepEqual(await sam.emitWithAck("player:action", { type: "check" }), {
+    ok: true,
+  });
+  await waitFor(
+    () => state.get("alex")?.game?.phase === "flop",
+    "flop insight",
+  );
+  assert.ok(state.get("alex").insight);
+  assert.equal(state.get("alex").insight.opponents, 1);
+  assert.equal(state.get("host").insight, null);
+  assert.equal(state.get("sam").insight, null);
+  assert.equal(state.get("kim").insight, null);
+  const reconnected = await connect("reconnected");
+  assert.equal(
+    (await reconnected.emitWithAck("player:join", {
+      code: room.code,
+      name: "Someone else",
+      token: a.token,
+    })).ok,
+    true,
+  );
+  await waitFor(() => state.get("reconnected")?.insight, "VIP reconnect");
+  assert.deepEqual(state.get("reconnected").insight, state.get("alex").insight);
   assert.deepEqual(await sam.emitWithAck("player:action", { type: "fold" }), {
     ok: true,
   });
@@ -178,7 +205,7 @@ try {
     4500,
   );
   console.log(
-    "E2E passed: QR, real-time joins, private cards, turn enforcement, automatic hands and late seating.",
+    "E2E passed: QR, real-time joins, private cards and insight, turn enforcement, automatic hands and late seating.",
   );
 } finally {
   sockets.forEach((socket) => socket.disconnect());

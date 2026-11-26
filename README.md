@@ -15,6 +15,8 @@ Open the address printed by the server on the TV, then create a table. Players o
 
 For active development, use `npm run dev`. To verify changes, run `npm run build`, `npm test` and `npm run test:e2e`.
 
+Set `VIP_FLOP_INSIGHT_ENABLED=true` on the server to show a private flop, turn and river hand insight to the guest named exactly `beladev`. It estimates the chance to win or tie at showdown against unknown hands; it never uses opponents' dealt cards or the actual remaining deck. Guest names are self-entered, so this is a trial flag rather than secure VIP authentication.
+
 ## Architecture
 
 - `src/` — React, strict TypeScript, SCSS, TV and phone views.

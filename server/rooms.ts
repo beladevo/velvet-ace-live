@@ -2,11 +2,13 @@ import { randomBytes, randomUUID } from "node:crypto";
 import type { Socket } from "socket.io";
 import type {
   ActionType,
+  FlopInsight,
   RoomView,
   SocialEvent,
   SocialKind,
 } from "../shared/types.js";
 import { PokerGame } from "./game.js";
+import { createFlopInsight, insightKey } from "./insight.js";
 
 interface RosterPlayer {
   id: string;
@@ -31,6 +33,7 @@ interface Room {
   autoDealAt: number | null;
   createdAt: number;
   social: SocialEvent[];
+  insightCache: Map<string, { key: string; insight: FlopInsight }>;
 }
 
 const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -53,6 +56,7 @@ const validAvatar = (value: unknown): number =>
 export class RoomManager {
   private rooms = new Map<string, Room>();
   private publicBaseUrl: string;
+  private insightEnabled = process.env.VIP_FLOP_INSIGHT_ENABLED === "true";
   constructor(publicBaseUrl: string) {
     this.publicBaseUrl = publicBaseUrl.replace(/\/$/, "");
   }
@@ -76,6 +80,7 @@ export class RoomManager {
       autoDealAt: null,
       createdAt: Date.now(),
       social: [],
+      insightCache: new Map(),
     };
     this.rooms.set(id, room);
     return room;
@@ -325,6 +330,16 @@ export class RoomManager {
     for (const socket of room.sockets.values()) {
       const viewerId =
         socket.data.role === "player" ? socket.data.playerId : null;
+      const gameView = game?.snapshot(viewerId) ?? null;
+      const vip = room.roster.find((player) => player.id === viewerId);
+      let insight: FlopInsight | null = null;
+      if (this.insightEnabled && vip?.name === "beladev" && gameView) {
+        const key = insightKey(gameView, vip.id);
+        const cached = room.insightCache.get(vip.id);
+        insight = cached?.key === key ? cached.insight : createFlopInsight(gameView, vip.id);
+        if (insight && cached?.key !== key)
+          room.insightCache.set(vip.id, { key, insight });
+      }
       const view: RoomView = {
         code: room.id,
         role: socket.data.role,
@@ -332,7 +347,8 @@ export class RoomManager {
         roster,
         social: room.social,
         joinUrl: this.joinUrl(room),
-        game: game?.snapshot(viewerId) ?? null,
+        game: gameView,
+        insight,
         deadline: room.deadline,
         autoDealAt: room.autoDealAt,
       };

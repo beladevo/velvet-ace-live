@@ -1198,6 +1198,66 @@ button:disabled {
   border-radius: 15px 15px 0 0;
   background: linear-gradient(#21152ddc, #0a1530e8);
 }
+.flop-insight {
+  margin-top: 14px;
+  border: 1px solid #bba57877;
+  border-radius: 10px;
+  background: #0a1830;
+  color: $cream;
+  summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    min-height: 48px;
+    padding: 10px 12px;
+    cursor: pointer;
+    strong {
+      color: #f4d38d;
+      font: 600 14px Oswald, sans-serif;
+      letter-spacing: 0.08em;
+    }
+  }
+  summary:focus-visible {
+    outline: 2px solid #f4d38d;
+    outline-offset: 2px;
+  }
+  .insight-result {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 12px 8px;
+    > strong {
+      font: 600 20px Oswald, sans-serif;
+    }
+    > span {
+      display: grid;
+      gap: 3px;
+      text-align: right;
+      strong {
+        color: #f4d38d;
+        font: 600 24px Oswald, sans-serif;
+      }
+      small {
+        color: #cbaa73;
+        font: 500 11px Oswald, sans-serif;
+        letter-spacing: 0.1em;
+      }
+    }
+  }
+  p {
+    margin: 0;
+    padding: 2px 12px 8px;
+    line-height: 1.45;
+  }
+  .insight-assumption {
+    display: block;
+    padding: 0 12px 12px;
+    color: #b8c4d1;
+    line-height: 1.4;
+  }
+}
 .my-meta {
   display: flex;
   justify-content: space-between;
