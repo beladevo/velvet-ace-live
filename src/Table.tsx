@@ -21,6 +21,7 @@ export function Table({
     amount: number;
   } | null>(null);
   const [allInFx, setAllInFx] = useState(false);
+  const [showdownCardsVisible, setShowdownCardsVisible] = useState(false);
   const lastPot = useRef<{ hand: number; pot: number; turn: number } | null>(
     null,
   );
@@ -63,6 +64,19 @@ export function Table({
     const timer = setTimeout(() => setAllInFx(false), 2600);
     return () => clearTimeout(timer);
   }, [room?.game?.history[0]?.message]);
+  const revealKey =
+    room?.game?.phase === "showdown"
+      ? `${room.game.hand}:${room.game.players.map((player) => player.cards?.map((card) => `${card.rank}${card.suit}`).join("") ?? "").join("|")}`
+      : null;
+  useEffect(() => {
+    if (!revealKey) {
+      setShowdownCardsVisible(false);
+      return;
+    }
+    setShowdownCardsVisible(true);
+    const timer = setTimeout(() => setShowdownCardsVisible(false), 2600);
+    return () => clearTimeout(timer);
+  }, [revealKey]);
   if (!room)
     return (
       <main className="loading-screen">
@@ -149,21 +163,6 @@ export function Table({
                   {game ? game.phase.toUpperCase() : "WAITING FOR PLAYERS"}
                 </span>
                 {game?.phase === "showdown" && winner && (
-                  <div className="showdown-ribbon">
-                    <span>
-                      {split
-                        ? "SPLIT POT"
-                        : `${game.players[winner.seat]?.name} WINS`}
-                    </span>
-                    <strong>
-                      {winner.name === "Uncontested"
-                        ? "POT WON"
-                        : winner.name.toUpperCase()}
-                    </strong>
-                    <b>+{money(winner.amount)}</b>
-                  </div>
-                )}
-                {game?.phase === "showdown" && winner && (
                   <div
                     className="win-burst"
                     key={`win-${game.hand}`}
@@ -187,6 +186,7 @@ export function Table({
               player={player}
               seat={index}
               game={game}
+              revealCards={showdownCardsVisible}
               avatar={
                 room.roster.find((item) => item.id === player?.id)?.avatar ??
                 index
@@ -203,6 +203,19 @@ export function Table({
             />
           ))}
         </div>
+        {game?.phase === "showdown" && winner && (
+          <div className="showdown-ribbon" role="status">
+            <span>
+              {split ? "SPLIT POT" : `${game.players[winner.seat]?.name} WINS`}
+            </span>
+            <strong>
+              {winner.name === "Uncontested"
+                ? "POT WON"
+                : winner.name.toUpperCase()}
+            </strong>
+            <b>+{money(winner.amount)}</b>
+          </div>
+        )}
       </div>
       <div className="table-bottom">
         <div className="hand-status">

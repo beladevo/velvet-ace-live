@@ -136,12 +136,14 @@ export function Seat({
   game,
   avatar,
   bubble,
+  revealCards = false,
 }: {
   player?: SeatPlayer;
   seat: number;
   game: GameView | null;
   avatar?: number;
   bubble?: string;
+  revealCards?: boolean;
 }) {
   const inGame = player && "stack" in player ? player : undefined;
   const isTurn = game?.turn === seat;
@@ -185,7 +187,9 @@ export function Seat({
               {inGame.mucked ? "MUCKED" : inGame.lastAction}
             </span>
           ) : null}
-          {inGame?.cards?.length && game?.phase === "showdown" ? (
+          {revealCards &&
+          inGame?.cards?.length &&
+          game?.phase === "showdown" ? (
             <div className="seat-cards">
               {inGame.cards.map((card, index) => (
                 <Card key={index} card={card} small />

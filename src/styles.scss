@@ -502,10 +502,10 @@ button:disabled {
 }
 .showdown-ribbon {
   position: absolute;
-  z-index: 5;
-  left: 10%;
-  right: 10%;
-  bottom: 9%;
+  z-index: 10;
+  left: 16%;
+  right: 16%;
+  top: 51%;
   min-height: 65px;
   display: flex;
   align-items: center;
@@ -662,8 +662,29 @@ button:disabled {
   top: -35px;
   right: -8px;
   transform: rotate(10deg);
+  animation: showdown-cards 2.6s ease-in-out both;
   .playing-card + .playing-card {
     margin-left: -13px;
+  }
+}
+@keyframes showdown-cards {
+  0% {
+    opacity: 0;
+    transform: translateY(24px) rotate(-12deg) scale(0.72);
+  }
+  18%,
+  72% {
+    opacity: 1;
+    transform: translateY(0) rotate(10deg) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-22px) rotate(17deg) scale(0.85);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .seat-cards {
+    animation: none !important;
   }
 }
 .empty-avatar {
