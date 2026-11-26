@@ -34,59 +34,6 @@ function SuitMark({ suit }: { suit: Suit }) {
   );
 }
 
-function CourtArt({ rank, suit }: { rank: string; suit: Suit }) {
-  return (
-    <svg className="court-art" viewBox="0 0 100 125" aria-hidden="true">
-      <path
-        d="M16 112 Q16 81 34 70 L50 82 66 70 Q84 81 84 112Z"
-        fill="#20304b"
-        stroke="currentColor"
-        strokeWidth="3"
-      />
-      <path
-        d="M36 75 50 87 64 75 59 114 H41Z"
-        fill={suit === "♥" || suit === "♦" ? "#bd322d" : "#d4aa5d"}
-      />
-      <circle
-        cx="50"
-        cy="54"
-        r="19"
-        fill="#f5d7ab"
-        stroke="#6c4b38"
-        strokeWidth="2"
-      />
-      <path
-        d="M28 42 34 18 45 29 50 13 56 29 68 18 73 43Z"
-        fill="#e5ba62"
-        stroke="#583d38"
-        strokeWidth="3"
-      />
-      <path
-        d="M35 42 H66 M42 52 H45 M55 52 H58 M44 63 Q50 68 56 63"
-        fill="none"
-        stroke="#4e3442"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M16 112 H84 M23 96 36 104 M77 96 64 104"
-        stroke="#e0b768"
-        strokeWidth="3"
-      />
-      <text
-        x="50"
-        y="113"
-        textAnchor="middle"
-        fontSize="23"
-        fontFamily="Georgia"
-        fill="#f6ddb0"
-      >
-        {rank}
-      </text>
-    </svg>
-  );
-}
-
 export function Card({
   card,
   back = false,
@@ -100,7 +47,7 @@ export function Card({
   const court = card && ["J", "Q", "K"].includes(card.rank);
   return (
     <div
-      className={`playing-card ${small ? "small" : ""} ${red ? "red" : ""} ${back ? "back" : ""} ${!card && !back ? "empty" : ""}`}
+      className={`playing-card ${small ? "small" : ""} ${red ? "red" : ""} ${court ? "court" : ""} ${back ? "back" : ""} ${!card && !back ? "empty" : ""}`}
       aria-label={
         card
           ? `${card.rank} of ${card.suit}`
@@ -115,13 +62,9 @@ export function Card({
             {card.rank}
             <SuitMark suit={card.suit} />
           </span>
-          {court ? (
-            <CourtArt rank={card.rank} suit={card.suit} />
-          ) : (
-            <span className="card-pip">
-              <SuitMark suit={card.suit} />
-            </span>
-          )}
+          <span className="card-pip">
+            <SuitMark suit={card.suit} />
+          </span>
           <span className="card-corner bottom">
             {card.rank}
             <SuitMark suit={card.suit} />
