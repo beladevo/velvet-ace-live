@@ -26,7 +26,9 @@ const waitFor = async (predicate, label, timeout = 5000) => {
   const until = Date.now() + timeout;
   while (!(await predicate())) {
     if (Date.now() > until)
-      throw new Error(`Timed out waiting for ${label}${serverError ? `: ${serverError}` : ""}`);
+      throw new Error(
+        `Timed out waiting for ${label}${serverError ? `: ${serverError}` : ""}`,
+      );
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
 };
@@ -53,11 +55,51 @@ try {
       return false;
     }
   }, "server");
+  const quickOne = await connect("quick-one");
+  const firstQuick = await quickOne.emitWithAck("player:quick-join", {
+    name: "Quick One",
+  });
+  assert.equal(firstQuick.ok, true);
+  const quickTwo = await connect("quick-two");
+  const secondQuick = await quickTwo.emitWithAck("player:quick-join", {
+    name: "Quick Two",
+  });
+  assert.equal(secondQuick.code, firstQuick.code);
+  await waitFor(
+    () => state.get("quick-one")?.roster.length === 2,
+    "quick-play match",
+  );
   const response = await fetch(`${base}/api/rooms`, { method: "POST" });
   assert.equal(response.status, 201);
   const room = await response.json();
   assert.equal(new URL(room.joinUrl).origin, "https://poker.torly.co");
   assert.equal(new URL(room.tableUrl).origin, "https://poker.torly.co");
+  const quickThree = await connect("quick-three");
+  const thirdQuick = await quickThree.emitWithAck("player:quick-join", {
+    name: "Quick Three",
+  });
+  assert.equal(
+    thirdQuick.code,
+    firstQuick.code,
+    "private table stays outside quick play",
+  );
+  assert.notEqual(thirdQuick.code, room.code);
+  for (let seat = 4; seat <= 6; seat++) {
+    const guest = await connect(`quick-${seat}`);
+    const joined = await guest.emitWithAck("player:quick-join", {
+      name: `Quick ${seat}`,
+    });
+    assert.equal(joined.code, firstQuick.code);
+  }
+  const nextGuest = await connect("quick-next");
+  const nextQuick = await nextGuest.emitWithAck("player:quick-join", {
+    name: "Next Table",
+  });
+  assert.notEqual(
+    nextQuick.code,
+    firstQuick.code,
+    "full quick-play table is skipped",
+  );
   assert.match(room.joinUrl, new RegExp(`join=${room.code}`));
   const qr = await fetch(`${base}/api/rooms/${room.code}/qr.svg`);
   assert.equal(qr.status, 200);
@@ -170,11 +212,13 @@ try {
   assert.equal(state.get("kim").insight, null);
   const reconnected = await connect("reconnected");
   assert.equal(
-    (await reconnected.emitWithAck("player:join", {
-      code: room.code,
-      name: "Someone else",
-      token: a.token,
-    })).ok,
+    (
+      await reconnected.emitWithAck("player:join", {
+        code: room.code,
+        name: "Someone else",
+        token: a.token,
+      })
+    ).ok,
     true,
   );
   await waitFor(() => state.get("reconnected")?.insight, "VIP reconnect");

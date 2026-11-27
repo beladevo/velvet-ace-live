@@ -1,6 +1,6 @@
 # Velvet Ace Live
 
-A private, real time Texas Hold’em table for a TV and 2–6 phones. The TV shows the table and a QR code; each player sees private hole cards and betting controls on their phone. All chips are fictional.
+A real time Texas Hold’em game for 2–6 players on phones or PCs, with an optional shared TV display. Create a private table for friends or use Play now to join an open quick-play table with space. Each player sees private hole cards and betting controls on their own device. All chips are fictional.
 
 ## Run locally
 
@@ -11,7 +11,7 @@ npm ci
 npm start
 ```
 
-Open the address printed by the server on the TV, then create a table. Players on the same Wi-Fi scan the QR code. If the detected LAN address is wrong, set `PUBLIC_BASE_URL` to the address the phones can reach. `PORT` defaults to `4173`.
+Open the address printed by the server on a phone, PC, or TV. Create a private table, use Play now for quick play, or display a table on the TV. Friends can join by invite link, code, or the TV's QR code. If the detected LAN address is wrong, set `PUBLIC_BASE_URL` to the address the devices can reach. `PORT` defaults to `4173`.
 
 For active development, use `npm run dev`. To verify changes, run `npm run build`, `npm test` and `npm run test:e2e`.
 
@@ -46,10 +46,10 @@ The `VIP_FLOP_INSIGHT_ENABLED` boolean in `server/flags.ts` controls the private
 - `server/index.ts` — HTTP, QR generation and Socket.IO transport.
 - `public/assets/` — original generated casino, dealer and avatar artwork.
 
-The browser and server ship from one repo. Their boundary makes a later mobile wrapper straightforward. Rooms and guest identities live in memory unless optional PostgreSQL persistence is configured. Public hosting uses guest identities and private room links; it is intended for small private games rather than open matchmaking.
+The browser and server ship from one repo. Their boundary makes a later mobile wrapper straightforward. Rooms and guest identities live in memory unless optional PostgreSQL persistence is configured. Private rooms require an invite link or code. Play now matches guests only into opt-in quick-play rooms, creating one when none has space.
 
 ## Scope
 
-This release covers guest joining, QR invites, a six-seat private table, blinds, no limit betting, fold/check/call/bet/raise/all in, flop/turn/river, showdown, side pots, split pots, turn timeout and reconnect. The server automatically deals the first hand after two players connect and every following hand after a short showdown pause; if one player holds all the chips, it starts a fresh fictional-chip game. Players can choose a character, react or send a short table message, and keep their hole cards face down until they press and hold to peek. A personal setting can always reveal them. Uncontested winners can show or muck, while contested showdown cards reveal automatically. The table has card, chip, turn, all-in and win motion with optional synthesized sound. The supplied Zynga product specification guides table language and flow. Its wallet, tournaments, progression, shop and matchmaking proposals are not implemented.
+This release covers guest joining, QR invites, six-seat private and quick-play tables, blinds, no limit betting, fold/check/call/bet/raise/all in, flop/turn/river, showdown, side pots, split pots, turn timeout and reconnect. The server automatically deals the first hand after two players connect and every following hand after a short showdown pause; if one player holds all the chips, it starts a fresh fictional-chip game. Players can choose a character, react or send a short table message, and keep their hole cards face down until they press and hold to peek. A personal setting can always reveal them. Uncontested winners can show or muck, while contested showdown cards reveal automatically. The table has card, chip, turn, all-in and win motion with optional synthesized sound. The supplied Zynga product specification guides table language and flow. Its wallet, tournaments, progression, and shop proposals are not implemented.
 
 See `AGENTS.md` and `.agents/skills/velvet-ace-development/SKILL.md` for project coding rules.

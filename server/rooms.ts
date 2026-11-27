@@ -44,6 +44,7 @@ interface Room {
   id: string;
   hostKey: string | null;
   hostKeyHash: string;
+  quickPlay: boolean;
   roster: RosterPlayer[];
   sockets: Map<string, Socket>;
   game: PokerGame | null;
@@ -122,6 +123,7 @@ export class RoomManager {
         id: saved.id,
         hostKey: null,
         hostKeyHash: saved.hostKeyHash,
+        quickPlay: saved.quickPlay ?? false,
         roster: saved.roster.map((player) => ({
           ...player,
           connected: false,
@@ -154,6 +156,7 @@ export class RoomManager {
       version: 1,
       id: room.id,
       hostKeyHash: room.hostKeyHash,
+      quickPlay: room.quickPlay,
       createdAt: room.createdAt,
       lastActiveAt: room.lastActiveAt,
       roster: room.roster.map(
@@ -254,7 +257,7 @@ export class RoomManager {
     return false;
   }
 
-  create(): Room {
+  create(quickPlay = false): Room {
     let id: string;
     do {
       id = code();
@@ -264,6 +267,7 @@ export class RoomManager {
       id,
       hostKey,
       hostKeyHash: secretHash(hostKey),
+      quickPlay,
       roster: [],
       sockets: new Map(),
       game: null,
@@ -379,6 +383,37 @@ export class RoomManager {
       name: player.name,
       seat: player.seat,
     };
+  }
+
+  quickJoin(socket: Socket, name: unknown, avatar?: unknown) {
+    if (cleanName(name).length < 2)
+      return { error: "Enter a name with at least two characters." };
+    const ip = clientIp(
+      socket.handshake?.headers ?? {},
+      socket.handshake?.address,
+    );
+    if (this.bans.has(`ip:${ip}`))
+      return { error: "Access to this table is unavailable." };
+    const room = [...this.rooms.values()]
+      .filter(
+        (candidate) =>
+          candidate.quickPlay &&
+          !candidate.config.locked &&
+          !candidate.config.paused &&
+          candidate.roster.length < 6 &&
+          (candidate.roster.length === 0 ||
+            candidate.roster.some((player) => player.connected)),
+      )
+      .sort(
+        (a, b) =>
+          b.roster.filter((player) => player.connected).length -
+          a.roster.filter((player) => player.connected).length,
+      )[0];
+    if (!room && this.rooms.size >= 200)
+      return { error: "Table capacity reached." };
+    const target = room ?? this.create(true);
+    const result = this.joinPlayer(socket, target.id, name, undefined, avatar);
+    return "ok" in result ? { ...result, code: target.id } : result;
   }
 
   attach(
@@ -704,7 +739,10 @@ export class RoomManager {
       if (VIP_FLOP_INSIGHT_ENABLED && vip?.name === "beladev" && gameView) {
         const key = insightKey(gameView, vip.id);
         const cached = room.insightCache.get(vip.id);
-        insight = cached?.key === key ? cached.insight : createFlopInsight(gameView, vip.id);
+        insight =
+          cached?.key === key
+            ? cached.insight
+            : createFlopInsight(gameView, vip.id);
         if (insight && cached?.key !== key)
           room.insightCache.set(vip.id, { key, insight });
       }

@@ -894,6 +894,24 @@ button:disabled {
     margin-top: 22px;
   }
 }
+.home-other-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  button {
+    min-height: 44px;
+    padding: 10px 14px;
+    border: 1px solid #b69b78;
+    border-radius: 5px;
+    background: #0b0e1ac9;
+    color: #f1cc87;
+    font:
+      500 13px Oswald,
+      sans-serif;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+  }
+}
 .code-entry {
   margin-top: 25px;
   label {
@@ -1094,6 +1112,57 @@ button:disabled {
   letter-spacing: 0.1em;
   > span:first-child {
     color: #69dca7;
+  }
+}
+.player-invite {
+  width: min(94vw, 560px);
+  margin: 0 auto 12px;
+  color: #f1cc87;
+  font:
+    500 12px Oswald,
+    sans-serif;
+  letter-spacing: 0.06em;
+  summary {
+    cursor: pointer;
+    padding: 8px 0;
+  }
+  > div {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  input {
+    min-width: 0;
+    flex: 1 1 180px;
+    padding: 10px;
+    border: 1px solid #b69b78;
+    border-radius: 5px;
+    background: #0b0e1ac9;
+    color: #fff;
+  }
+  button,
+  a {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 12px;
+    border: 1px solid #b69b78;
+    border-radius: 5px;
+    background: #1b1b34;
+    color: #f1cc87;
+    font: inherit;
+    text-decoration: none;
+    cursor: pointer;
+  }
+}
+@media (min-width: 1000px) {
+  .player-screen .phone-table {
+    width: min(70vw, 760px);
+    height: 320px;
+  }
+  .player-screen .player-invite {
+    width: min(70vw, 760px);
   }
 }
 .player-chat-toggle {
