@@ -1,6 +1,7 @@
 import { AvatarPicker, Brand } from "./ui";
 export function Join({
   code,
+  quick,
   name,
   avatar,
   setAvatar,
@@ -9,6 +10,7 @@ export function Join({
   onJoin,
 }: {
   code: string;
+  quick?: boolean;
   name: string;
   avatar: number;
   setAvatar: (value: number) => void;
@@ -20,9 +22,15 @@ export function Join({
     <main className="join-screen">
       <Brand />
       <div className="join-panel">
-        <span className="eyebrow">TABLE {code} · PRIVATE GAME</span>
-        <h1>Take your seat.</h1>
-        <p>Choose a name. Your hole cards stay private on this screen.</p>
+        <span className="eyebrow">
+          {quick ? "QUICK PLAY · OPEN TABLE" : `TABLE ${code} · PRIVATE GAME`}
+        </span>
+        <h1>{quick ? "Play now." : "Take your seat."}</h1>
+        <p>
+          {quick
+            ? "Join a quick-play table with space, or start one for the next player."
+            : "Choose a name. Your hole cards stay private on this screen."}
+        </p>
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -41,7 +49,7 @@ export function Join({
           <label>CHOOSE YOUR CHARACTER</label>
           <AvatarPicker value={avatar} onChange={setAvatar} />
           <button className="gold-button" disabled={joining}>
-            {joining ? "JOINING…" : "JOIN TABLE →"}
+            {joining ? "JOINING…" : quick ? "FIND A SEAT →" : "JOIN TABLE →"}
           </button>
         </form>
       </div>

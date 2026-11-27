@@ -12,8 +12,15 @@ import "./styles.scss";
 const params = new URLSearchParams(location.search);
 const tableCode = params.get("table")?.toUpperCase();
 const joinCode = params.get("join")?.toUpperCase();
+const quickPlay = params.has("quick");
 const hostKey = params.get("key");
-type Ack = { ok?: boolean; error?: string; token?: string; name?: string };
+type Ack = {
+  ok?: boolean;
+  error?: string;
+  token?: string;
+  name?: string;
+  code?: string;
+};
 
 function App() {
   const [room, setRoom] = useState<RoomView | null>(null);
@@ -39,7 +46,7 @@ function App() {
   } | null>(null);
 
   useEffect(() => {
-    if (!tableCode && !joinCode) return;
+    if (!tableCode && !joinCode && !quickPlay) return;
     const socket = io();
     socketRef.current = socket;
     const request = (event: string, payload: object) =>
@@ -143,12 +150,27 @@ function App() {
     });
   }
   function join() {
-    if (!joinCode || name.trim().length < 2) {
+    if ((!joinCode && !quickPlay) || name.trim().length < 2) {
       setError("Enter a name with at least two characters.");
       return;
     }
     setJoining(true);
-    emitJoin(joinCode, name.trim());
+    if (quickPlay) {
+      socketRef.current?.emit(
+        "player:quick-join",
+        { name: name.trim(), avatar },
+        (result: Ack) => {
+          if (result?.error || !result?.code || !result?.token) {
+            setError(result?.error ?? "Could not find a seat.");
+            setJoining(false);
+            return;
+          }
+          localStorage.setItem(`va-token-${result.code}`, result.token);
+          localStorage.setItem("va-name", result.name ?? name.trim());
+          location.replace(`/?join=${result.code}`);
+        },
+      );
+    } else emitJoin(joinCode!, name.trim());
   }
   function emitJoin(code: string, playerName: string) {
     socketRef.current?.emit(
@@ -173,7 +195,7 @@ function App() {
   };
   return (
     <>
-      {!tableCode && !joinCode ? (
+      {!tableCode && !joinCode && !quickPlay ? (
         <Home onError={setError} />
       ) : tableCode ? (
         <Table
@@ -183,7 +205,7 @@ function App() {
           sound={sound}
           toggleSound={toggleSound}
         />
-      ) : room ? (
+      ) : room && !quickPlay ? (
         <Player
           room={room}
           seconds={seconds}
@@ -198,7 +220,8 @@ function App() {
         />
       ) : (
         <Join
-          code={joinCode!}
+          code={joinCode ?? ""}
+          quick={quickPlay}
           name={name}
           avatar={avatar}
           setAvatar={(choice) => {

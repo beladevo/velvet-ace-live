@@ -58,6 +58,7 @@ export function Player({
     room.roster.find((item) => item.id === room.playerId)?.avatar ?? 0;
   const visibleCards = alwaysShow || peeking;
   const reactions = ["😂", "🔥", "👏", "😮", "🍀", "❤️"];
+  const displayUrl = localStorage.getItem(`va-table-url-${room.code}`);
   return (
     <main className={`player-screen ${raiseOpen ? "betting-open" : ""}`}>
       <header className="player-hud">
@@ -138,6 +139,30 @@ export function Player({
         <span>{connected ? "● CONNECTED" : "○ RECONNECTING"}</span>
         <span>NO LIMIT HOLD’EM · 10 / 20</span>
       </div>
+      <details className="player-invite">
+        <summary>INVITE FRIENDS · {room.code}</summary>
+        <div>
+          <span>{room.roster.length} / 6 SEATED</span>
+          <input
+            aria-label="Invite link"
+            value={room.joinUrl}
+            readOnly
+            onFocus={(event) => event.currentTarget.select()}
+          />
+          {navigator.clipboard && (
+            <button
+              onClick={() => void navigator.clipboard.writeText(room.joinUrl)}
+            >
+              COPY INVITE LINK
+            </button>
+          )}
+          {displayUrl && (
+            <a href={displayUrl} target="_blank" rel="noreferrer">
+              OPEN TV DISPLAY
+            </a>
+          )}
+        </div>
+      </details>
       <div className="phone-table">
         <div className="phone-rail">
           <div className="phone-led">

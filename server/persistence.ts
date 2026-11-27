@@ -11,6 +11,7 @@ export interface SavedRoom {
   hostKeyHash: string;
   createdAt: number;
   lastActiveAt: number;
+  quickPlay?: boolean;
   roster: {
     id: string;
     tokenHash: string;

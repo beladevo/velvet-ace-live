@@ -136,6 +136,12 @@ io.on("connection", (socket) => {
       ack(rooms.joinPlayer(socket, code, name, token, avatar));
     },
   );
+  socket.on("player:quick-join", ({ name, avatar } = {}, ack = () => {}) => {
+    const ip = clientIp(socket.handshake.headers, socket.handshake.address);
+    if (!allowed(`join:${ip}`, 60, 10 * 60_000))
+      return ack({ error: "Too many join attempts. Try later." });
+    ack(rooms.quickJoin(socket, name, avatar));
+  });
   socket.on("player:avatar", ({ avatar } = {}, ack = () => {}) =>
     ack(rooms.setAvatar(socket, avatar)),
   );
@@ -159,7 +165,7 @@ io.on("connection", (socket) => {
 setInterval(() => rooms.cleanup(), 60 * 60 * 1000).unref();
 server.listen(PORT, HOST, () => {
   console.log(`\nVELVET ACE LIVE`);
-  console.log(`Open on TV: ${baseUrl}`);
+  console.log(`Open on any device: ${baseUrl}`);
   console.log(
     `Phones must be on the same Wi-Fi. Set PUBLIC_BASE_URL if this address is not reachable.\n`,
   );

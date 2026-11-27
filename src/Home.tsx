@@ -4,7 +4,7 @@ import { Brand, Card } from "./ui";
 export function Home({ onError }: { onError: (message: string) => void }) {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
-  async function create() {
+  async function create(display: boolean) {
     setBusy(true);
     try {
       const response = await fetch("/api/rooms", { method: "POST" });
@@ -14,7 +14,14 @@ export function Home({ onError }: { onError: (message: string) => void }) {
       };
       if (!response.ok || !data.tableUrl)
         throw new Error(data.error ?? "Could not create a table.");
-      location.href = data.tableUrl;
+      if (display) {
+        location.href = data.tableUrl;
+      } else {
+        const roomCode = new URL(data.tableUrl).searchParams.get("table");
+        if (!roomCode) throw new Error("Could not open the new table.");
+        localStorage.setItem(`va-table-url-${roomCode}`, data.tableUrl);
+        location.href = `/?join=${roomCode}`;
+      }
     } catch (cause) {
       onError(
         cause instanceof Error ? cause.message : "Could not create a table.",
@@ -42,12 +49,24 @@ export function Home({ onError }: { onError: (message: string) => void }) {
             at the <em>good table.</em>
           </h1>
           <p>
-            Live Texas Hold’em with friends. Put the table on your TV, scan the
-            code and play your cards from your phone.
+            Play Texas Hold’em on your phone or PC. Find an open table, invite
+            friends to a private one, or put the table on your TV.
           </p>
-          <button className="gold-button" onClick={create} disabled={busy}>
-            {busy ? "OPENING TABLE…" : "CREATE A TABLE"} <span>→</span>
+          <button
+            className="gold-button"
+            onClick={() => (location.href = "/?quick=1")}
+            disabled={busy}
+          >
+            PLAY NOW <span>→</span>
           </button>
+          <div className="home-other-actions">
+            <button onClick={() => create(false)} disabled={busy}>
+              CREATE PRIVATE TABLE
+            </button>
+            <button onClick={() => create(true)} disabled={busy}>
+              DISPLAY TABLE ON THIS SCREEN
+            </button>
+          </div>
           <div className="code-entry">
             <label htmlFor="room-code">HAVE A TABLE CODE?</label>
             <div>
@@ -62,7 +81,9 @@ export function Home({ onError }: { onError: (message: string) => void }) {
               <button onClick={go}>JOIN TABLE</button>
             </div>
           </div>
-          <small>2–6 players · Private room · Fictional chips</small>
+          <small>
+            2–6 players · Quick play or private room · Fictional chips
+          </small>
         </div>
         <div className="home-preview">
           <div className="preview-glow" />
