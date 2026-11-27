@@ -1160,6 +1160,20 @@ button:disabled {
     sans-serif;
   letter-spacing: 0.2em;
 }
+.phone-hand-ribbon {
+  margin-top: 5px;
+  padding: 2px 15px;
+  border: 1px solid #f4ce7a;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #53213a, #923c56, #53213a);
+  color: #ffeba6;
+  font:
+    600 13px Oswald,
+    sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  box-shadow: 0 0 14px #f3bd6466;
+}
 .opponents {
   display: flex;
   justify-content: center;
@@ -1349,6 +1363,10 @@ button:disabled {
     color: white;
     box-shadow: 0 4px 0 #0b573c;
   }
+}
+.bet-open-button,
+.bet-picker-close {
+  display: none;
 }
 .raise-controls {
   margin-top: 19px;
@@ -2200,4 +2218,330 @@ button:disabled {
   color: #fff2d5;
   text-align: center;
   font-weight: 700;
+}
+
+@media (orientation: landscape) and (max-width: 1000px) and (max-height: 600px) {
+  .player-screen {
+    position: relative;
+    height: 100dvh;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    overflow-x: hidden;
+    overflow-y: auto;
+    background:
+      linear-gradient(#0a1023aa, #100b1ed9),
+      url("/assets/casino-lounge.png") center / cover;
+  }
+  .player-hud {
+    position: relative;
+    z-index: 6;
+    height: 42px;
+    padding: 3px max(12px, env(safe-area-inset-left));
+    background: #210e20d9;
+    .brand {
+      font-size: 15px;
+    }
+    .brand-symbol {
+      width: 27px;
+      height: 27px;
+      font-size: 19px;
+    }
+    > div button {
+      min-width: 36px;
+      min-height: 36px;
+      font-size: 18px;
+    }
+  }
+  .player-status {
+    position: absolute;
+    z-index: 5;
+    inset: 42px 0 auto;
+    padding: 3px 14px;
+    font-size: 10px;
+  }
+  .phone-table {
+    position: absolute;
+    top: 15%;
+    left: 12%;
+    width: 76%;
+    height: 57%;
+    max-width: none;
+    margin: 0;
+    padding: 9px;
+    background: linear-gradient(
+      150deg,
+      #f5d292,
+      #ad673c 28%,
+      #562c30 72%,
+      #e7ba75
+    );
+    box-shadow:
+      0 9px 0 #2b1722,
+      0 20px 30px #000b,
+      0 0 22px #efb8706b;
+    transform: none;
+  }
+  .phone-rail {
+    padding: 5px;
+    background: #d4914e;
+    box-shadow:
+      inset 0 0 6px #fff2c4,
+      0 0 9px #f1bc75;
+  }
+  .phone-felt {
+    background: radial-gradient(ellipse, #8e2229, #661423 72%, #43121d);
+    box-shadow:
+      inset 0 5px 20px #25070f,
+      inset 0 0 0 2px #b75e3d;
+  }
+  .phone-pot {
+    margin-bottom: 5px;
+  }
+  .phone-pot strong {
+    font-size: clamp(14px, 2.6vw, 22px);
+  }
+  .phone-felt .board {
+    gap: clamp(2px, 0.5vw, 8px);
+  }
+  .phone-felt .playing-card.small {
+    width: clamp(35px, 5.6vw, 65px);
+  }
+  .phone-felt .playing-card:not(.empty),
+  .my-hand-panel .playing-card:not(.empty) {
+    border-color: #ffe6a0;
+    box-shadow:
+      0 0 0 2px #a86635,
+      0 0 15px #f8c367b3,
+      0 8px 14px #0009;
+  }
+  .phone-street {
+    margin-top: 4px;
+    color: #ffd594;
+  }
+  .phone-hand-ribbon {
+    font-size: 11px;
+    margin-top: 3px;
+  }
+  .opponents {
+    position: absolute;
+    z-index: 3;
+    inset: 13% 4% auto;
+    justify-content: space-between;
+    gap: 5px;
+    padding: 0;
+    overflow: visible;
+    pointer-events: none;
+  }
+  .opponent {
+    width: 15%;
+    min-width: 0;
+    padding: 3px;
+    border-radius: 12px;
+    background: #1b1021b8;
+    text-shadow: 0 1px 2px #000;
+    .avatar {
+      width: clamp(34px, 6vw, 58px);
+    }
+    strong,
+    span {
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 10px;
+    }
+    &.active {
+      box-shadow:
+        0 0 0 2px #f7c96e,
+        0 0 18px #f5b761;
+    }
+  }
+  .my-hand-panel {
+    position: absolute;
+    z-index: 4;
+    left: 20%;
+    bottom: max(3px, env(safe-area-inset-bottom));
+    width: 38%;
+    height: 32%;
+    margin: 0;
+    padding: 6px 10px;
+    border-radius: 12px;
+    background: linear-gradient(#281423e0, #170e1de8);
+    box-shadow: 0 8px 24px #0009;
+  }
+  .my-meta {
+    justify-content: center;
+    gap: 6px;
+    > .avatar {
+      width: 34px;
+      flex-basis: 34px;
+    }
+    > div:not(.avatar) {
+      span {
+        font-size: 9px;
+      }
+      strong {
+        font-size: clamp(12px, 1.8vw, 18px);
+      }
+    }
+  }
+  .hole-cards {
+    min-height: 0;
+    margin: -2px auto 0;
+    .playing-card {
+      width: clamp(40px, 6vw, 65px);
+    }
+  }
+  .peek-hint {
+    font-size: 9px;
+    margin: 0;
+  }
+  .flop-insight {
+    position: absolute;
+    left: 0;
+    bottom: 100%;
+    width: 100%;
+    max-height: 55vh;
+    overflow-y: auto;
+    margin: 0;
+    background: #0a1830f5;
+    summary {
+      min-height: 35px;
+      padding: 5px 10px;
+      strong {
+        font-size: 11px;
+      }
+    }
+  }
+  .action-panel {
+    position: absolute;
+    z-index: 5;
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    width: 39%;
+    margin: 0;
+    padding: 8px;
+    border: 0;
+    border-radius: 12px;
+    background: #210f20dc;
+  }
+  .action-title {
+    font-size: 12px;
+  }
+  .primary-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    margin-top: 4px;
+    button {
+      min-width: 0;
+      min-height: 52px;
+      padding: 3px;
+      border-radius: 50%;
+      font-size: clamp(11px, 1.7vw, 16px);
+      line-height: 1.1;
+    }
+    .fold-button {
+      background: radial-gradient(circle at 35% 25%, #ff6672, #9a1b37);
+      color: white;
+    }
+    .call-button {
+      background: radial-gradient(circle at 35% 25%, #6de0ce, #087f86);
+    }
+    .bet-open-button {
+      display: grid;
+      place-content: center;
+      background: radial-gradient(circle at 35% 25%, #ffe39a, #c28729);
+      border: 1px solid #ffedae;
+      color: #332025;
+      box-shadow: 0 4px 0 #70411e;
+      span {
+        display: block;
+        font-size: 18px;
+      }
+    }
+    button:nth-child(2):last-child {
+      grid-column: span 2;
+    }
+  }
+  .raise-controls {
+    display: none;
+  }
+  .betting-open .raise-controls {
+    position: fixed;
+    z-index: 10;
+    top: 42px;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    width: min(45vw, 390px);
+    min-width: 270px;
+    margin: 0;
+    padding: 14px max(16px, env(safe-area-inset-right)) 14px 18px;
+    overflow-y: auto;
+    border-left: 2px solid #c58c50;
+    background: linear-gradient(110deg, #3a1027, #210e23);
+    box-shadow: -20px 0 50px #000a;
+  }
+  .bet-picker-close {
+    display: block;
+    position: absolute;
+    top: 5px;
+    right: max(8px, env(safe-area-inset-right));
+    width: 36px;
+    height: 36px;
+    border: 1px solid #d1a366;
+    border-radius: 50%;
+    background: #4a1c30;
+    color: white;
+    font-size: 25px;
+  }
+  .raise-heading {
+    padding-right: 30px;
+    strong {
+      font-size: 20px;
+    }
+  }
+  .bet-stepper {
+    margin: 5px 0;
+  }
+  .raise-controls input[type="range"] {
+    margin: 4px 0;
+  }
+  .bet-presets {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .bet-presets button {
+    min-height: 36px;
+  }
+  .raise-button {
+    min-height: 40px;
+    margin-top: 9px;
+  }
+  .waiting-action {
+    padding: 3px;
+    gap: 2px;
+    > span {
+      display: none;
+    }
+    strong {
+      font-size: 14px;
+    }
+    small {
+      font-size: 10px;
+    }
+  }
+  .phone-win {
+    position: absolute;
+    z-index: 7;
+    top: 40%;
+    left: 26%;
+    width: 48%;
+    margin: 0;
+  }
+  .social-strip {
+    margin-top: 100dvh;
+  }
+  .player-settings {
+    z-index: 12;
+  }
 }

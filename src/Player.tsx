@@ -33,6 +33,7 @@ export function Player({
     localStorage.getItem("va-show-cards") === "on",
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [raiseOpen, setRaiseOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -41,6 +42,7 @@ export function Player({
   }, []);
   useEffect(() => {
     if (legal) setRaise(legal.minTotal);
+    setRaiseOpen(false);
   }, [game?.hand, game?.phase, game?.turn, legal?.minTotal]);
   const amount = legal
     ? Math.max(legal.minTotal, Math.min(legal.maxTotal, raise))
@@ -56,7 +58,7 @@ export function Player({
   const visibleCards = alwaysShow || peeking;
   const reactions = ["😂", "🔥", "👏", "😮", "🍀", "❤️"];
   return (
-    <main className="player-screen">
+    <main className={`player-screen ${raiseOpen ? "betting-open" : ""}`}>
       <header className="player-hud">
         <Brand />
         <div>
@@ -127,6 +129,9 @@ export function Player({
               <strong>◉ {money(game?.pot ?? 0)}</strong>
             </div>
             <Board game={game} compact />
+            {room.insight && game && game.board.length >= 3 && (
+              <span className="phone-hand-ribbon">{room.insight.hand}</span>
+            )}
             <span className="phone-street">
               {game?.phase.toUpperCase() ?? "WAITING TO DEAL"}
             </span>
@@ -230,7 +235,10 @@ export function Player({
             : "WAITING FOR THE DEAL"}
         </span>
         {room.insight && (
-          <details className="flop-insight" key={`${game?.hand}-${game?.phase}`}>
+          <details
+            className="flop-insight"
+            key={`${game?.hand}-${game?.phase}`}
+          >
             <summary>
               <strong>VIEW PRIVATE HAND INSIGHT</strong>
               <span aria-hidden="true">⌄</span>
@@ -251,8 +259,8 @@ export function Player({
             <p>{room.insight.explanation}</p>
             <small className="insight-assumption">
               Estimate against {room.insight.opponents} unknown{" "}
-              {room.insight.opponents === 1 ? "hand" : "hands"} if everyone stays
-              to showdown. It does not predict betting or folds.
+              {room.insight.opponents === 1 ? "hand" : "hands"} if everyone
+              stays to showdown. It does not predict betting or folds.
             </small>
           </details>
         )}
@@ -274,9 +282,27 @@ export function Player({
               >
                 {legal.canCheck ? "CHECK" : `CALL ${money(legal.toCall)}`}
               </button>
+              {legal.canRaise && (
+                <button
+                  className="bet-open-button"
+                  onClick={() => setRaiseOpen(true)}
+                  aria-expanded={raiseOpen}
+                  aria-controls="bet-picker"
+                >
+                  <span>♠</span>
+                  {game?.currentBet === 0 ? "BET" : "RAISE"}
+                </button>
+              )}
             </div>
             {legal.canRaise && (
-              <div className="raise-controls">
+              <div className="raise-controls" id="bet-picker">
+                <button
+                  className="bet-picker-close"
+                  onClick={() => setRaiseOpen(false)}
+                  aria-label="Close bet picker"
+                >
+                  ×
+                </button>
                 <div className="raise-heading">
                   <span>{game?.currentBet === 0 ? "BET" : "RAISE TO"}</span>
                   <strong>◉ {money(amount)}</strong>
@@ -345,7 +371,10 @@ export function Player({
                 </div>
                 <button
                   className="gold-button raise-button"
-                  onClick={() => act("raise", amount)}
+                  onClick={() => {
+                    act("raise", amount);
+                    setRaiseOpen(false);
+                  }}
                 >
                   {amount === legal.maxTotal
                     ? "ALL IN"
