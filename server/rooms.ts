@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes, randomInt, randomUUID } from "node:crypto";
 import { isIP } from "node:net";
 import type { Socket } from "socket.io";
 import type {
@@ -26,6 +26,7 @@ interface RosterPlayer {
   connected: boolean;
   seat: number;
   avatar: number;
+  bot?: boolean;
   lastSocialAt: number;
   ip: string;
   userAgent: string;
@@ -126,7 +127,7 @@ export class RoomManager {
         quickPlay: saved.quickPlay ?? false,
         roster: saved.roster.map((player) => ({
           ...player,
-          connected: false,
+          connected: player.bot === true,
           lastSocialAt: 0,
         })),
         sockets: new Map(),
@@ -166,6 +167,7 @@ export class RoomManager {
           name,
           seat,
           avatar,
+          bot,
           ip,
           userAgent,
           firstSeenAt,
@@ -176,6 +178,7 @@ export class RoomManager {
           name,
           seat,
           avatar,
+          bot,
           ip,
           userAgent,
           firstSeenAt,
@@ -338,7 +341,7 @@ export class RoomManager {
     let player =
       typeof existingToken === "string"
         ? room.roster.find(
-            (item) => item.tokenHash === secretHash(existingToken),
+            (item) => !item.bot && item.tokenHash === secretHash(existingToken),
           )
         : undefined;
     let newToken: string | null = null;
@@ -401,19 +404,44 @@ export class RoomManager {
           !candidate.config.locked &&
           !candidate.config.paused &&
           candidate.roster.length < 6 &&
-          (candidate.roster.length === 0 ||
-            candidate.roster.some((player) => player.connected)),
+          candidate.roster.some((player) => player.connected && !player.bot),
       )
       .sort(
         (a, b) =>
-          b.roster.filter((player) => player.connected).length -
-          a.roster.filter((player) => player.connected).length,
+          Number(a.roster.some((player) => player.bot)) -
+            Number(b.roster.some((player) => player.bot)) ||
+          b.roster.filter((player) => player.connected && !player.bot).length -
+          a.roster.filter((player) => player.connected && !player.bot).length,
       )[0];
     if (!room && this.rooms.size >= 200)
       return { error: "Table capacity reached." };
     const target = room ?? this.create(true);
     const result = this.joinPlayer(socket, target.id, name, undefined, avatar);
+    if (!room && "ok" in result) this.addBots(target);
     return "ok" in result ? { ...result, code: target.id } : result;
+  }
+
+  private addBots(room: Room): void {
+    const names = ["Riley", "Morgan", "Jules", "Casey", "Avery", "Quinn"];
+    const count = randomInt(2, 4);
+    for (let index = 0; index < count; index++) {
+      const name = names.splice(randomInt(names.length), 1)[0];
+      room.roster.push({
+        id: randomUUID(),
+        tokenHash: secretHash(token()),
+        name,
+        connected: true,
+        bot: true,
+        seat: room.roster.length,
+        avatar: randomInt(6),
+        lastSocialAt: 0,
+        ip: "",
+        userAgent: "",
+        firstSeenAt: Date.now(),
+        lastSeenAt: Date.now(),
+      });
+    }
+    this.send(room);
   }
 
   attach(
@@ -722,12 +750,13 @@ export class RoomManager {
     this.scheduleTurn(room);
     this.scheduleAutoDeal(room);
     const game = room.game;
-    const roster = room.roster.map(({ id, name, connected, seat, avatar }) => ({
+    const roster = room.roster.map(({ id, name, connected, seat, avatar, bot }) => ({
       id,
       name,
       connected,
       seat,
       avatar,
+      bot,
     }));
     for (const socket of room.sockets.values()) {
       const viewerId =
@@ -773,6 +802,7 @@ export class RoomManager {
     const canDeal =
       room.config.autoDeal &&
       !room.config.paused &&
+      ready.some((player) => !player.bot) &&
       ready.length >= 2 &&
       (!game ||
         phase === "waiting" ||
@@ -847,15 +877,27 @@ export class RoomManager {
     room.deadline = key ? Date.now() + room.config.turnSeconds * 1000 : null;
     if (!key || !game) return;
     const player = game.players[game.turn];
-    const connected = room.roster.find(
+    const rosterPlayer = room.roster.find(
       (item) => item.id === player.id,
-    )?.connected;
-    const wait = connected ? room.config.turnSeconds * 1000 : 2500;
+    );
+    const wait = rosterPlayer?.bot
+      ? randomInt(900, 1800)
+      : rosterPlayer?.connected
+        ? room.config.turnSeconds * 1000
+        : 2500;
     room.deadline = Date.now() + wait;
     room.timer = setTimeout(() => {
       if (room.turnKey !== key) return;
       const legal = game.legalActions(game.turn);
-      if (legal) game.act(game.turn, legal.canCheck ? "check" : "fold");
+      if (!legal) return;
+      if (rosterPlayer?.bot) {
+        const choice = randomInt(100);
+        if (legal.canRaise && choice < 12)
+          game.act(game.turn, "raise", legal.minTotal);
+        else if (!legal.canCheck && choice < 25 && legal.toCall > game.players[game.turn].stack / 4)
+          game.act(game.turn, "fold");
+        else game.act(game.turn, legal.canCheck ? "check" : "call");
+      } else game.act(game.turn, legal.canCheck ? "check" : "fold");
     }, wait);
     room.timer.unref();
     for (const socket of room.sockets.values())

@@ -60,13 +60,20 @@ try {
     name: "Quick One",
   });
   assert.equal(firstQuick.ok, true);
+  await waitFor(
+    () => state.get("quick-one")?.roster.length >= 3,
+    "bot fallback seats",
+  );
+  const fallback = state.get("quick-one");
+  assert.ok([2, 3].includes(fallback.roster.filter((player) => player.bot).length));
+  assert.equal(fallback.roster.filter((player) => !player.bot).length, 1);
   const quickTwo = await connect("quick-two");
   const secondQuick = await quickTwo.emitWithAck("player:quick-join", {
     name: "Quick Two",
   });
   assert.equal(secondQuick.code, firstQuick.code);
   await waitFor(
-    () => state.get("quick-one")?.roster.length === 2,
+    () => state.get("quick-one")?.roster.filter((player) => !player.bot).length === 2,
     "quick-play match",
   );
   const response = await fetch(`${base}/api/rooms`, { method: "POST" });
@@ -84,7 +91,7 @@ try {
     "private table stays outside quick play",
   );
   assert.notEqual(thirdQuick.code, room.code);
-  for (let seat = 4; seat <= 6; seat++) {
+  for (let seat = fallback.roster.length + 3; seat <= 6; seat++) {
     const guest = await connect(`quick-${seat}`);
     const joined = await guest.emitWithAck("player:quick-join", {
       name: `Quick ${seat}`,

@@ -18,6 +18,7 @@ export interface SavedRoom {
     name: string;
     seat: number;
     avatar: number;
+    bot?: boolean;
     ip: string;
     userAgent: string;
     firstSeenAt: number;

@@ -61,6 +61,7 @@ export interface RosterView {
   connected: boolean;
   seat: number;
   avatar: number;
+  bot?: boolean;
 }
 export type SocialKind = "chat" | "reaction";
 export interface SocialEvent {

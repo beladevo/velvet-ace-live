@@ -269,6 +269,7 @@ export function Table({
                 room.roster.find((item) => item.id === player?.id)?.avatar ??
                 index
               }
+              bot={room.roster.some((item) => item.id === player?.id && item.bot)}
               bubble={
                 room.social
                   .filter(

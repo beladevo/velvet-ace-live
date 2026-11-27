@@ -135,6 +135,7 @@ export function Seat({
   seat,
   game,
   avatar,
+  bot = false,
   bubble,
   revealCards = false,
   startingStack = 1500,
@@ -143,6 +144,7 @@ export function Seat({
   seat: number;
   game: GameView | null;
   avatar?: number;
+  bot?: boolean;
   bubble?: string;
   revealCards?: boolean;
   startingStack?: number;
@@ -175,7 +177,7 @@ export function Seat({
             </span>
           )}
           <div className="seat-info">
-            <strong>{player.name}</strong>
+            <strong>{player.name}{bot ? " · BOT" : ""}</strong>
             <span>◉ {money(inGame?.stack ?? startingStack)}</span>
           </div>
           {inGame?.bet ? (

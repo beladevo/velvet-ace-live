@@ -28,7 +28,7 @@ export function Join({
         <h1>{quick ? "Play now." : "Take your seat."}</h1>
         <p>
           {quick
-            ? "Join a quick-play table with space, or start one for the next player."
+            ? "Join an open table with players. If none is available, play against 2–3 bots."
             : "Choose a name. Your hole cards stay private on this screen."}
         </p>
         <form

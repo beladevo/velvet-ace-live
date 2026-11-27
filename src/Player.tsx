@@ -226,7 +226,12 @@ export function Player({
               }
               name={player.name}
             />
-            <strong>{player.name}</strong>
+            <strong>
+              {player.name}
+              {room.roster.some((item) => item.id === player.id && item.bot)
+                ? " · BOT"
+                : ""}
+            </strong>
             <span>
               ◉ {money("stack" in player ? player.stack : room.startingStack)}
             </span>

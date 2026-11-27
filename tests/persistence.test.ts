@@ -165,3 +165,52 @@ test("a database outage does not stop in-memory play", async () => {
   assert.equal(store.rooms.get(room.id)?.game?.players.length, 2);
   assert.ok(rooms.get(oldRoom.id));
 });
+
+test("quick play adds persistent bots that take legal turns without revealing cards", async () => {
+  const store = new MemoryStore();
+  const rooms = new RoomManager("http://localhost:4173", store);
+  const human = socket();
+  const joined = rooms.quickJoin(human, "Alex");
+  assert.equal(joined.ok, true);
+  if (!("code" in joined)) throw new Error("Quick join did not return a code");
+  const room = rooms.get(joined.code)!;
+  const bots = room.roster.filter((player) => player.bot);
+  assert.ok(bots.length === 2 || bots.length === 3);
+  assert.equal(room.roster.filter((player) => !player.bot).length, 1);
+  const host = socket();
+  rooms.bindHost(host, room.id, new URL(rooms.tableUrl(room)).searchParams.get("key"));
+  assert.deepEqual(rooms.start(host), { ok: true });
+  const game = room.game!;
+  assert.ok(game.snapshot().players.every((player) => player.cards === null));
+  assert.ok(
+    game.snapshot(human.data.playerId).players.every((player) =>
+      player.id === human.data.playerId ? player.cards?.length === 2 : player.cards === null,
+    ),
+  );
+  if (game.players[game.turn]?.id === human.data.playerId)
+    assert.deepEqual(rooms.act(human, "call", 0), { ok: true });
+  const botTurn = game.players[game.turn]?.id;
+  assert.ok(bots.some((bot) => bot.id === botTurn));
+  const historyLength = game.history.length;
+  await waitFor(() => game.history.length > historyLength, 4000);
+  assert.equal(
+    game.players.reduce((sum, player) => sum + player.stack, 0) + game.pot,
+    room.roster.length * room.config.startingStack,
+  );
+  await waitFor(() => store.rooms.get(room.id)?.roster.some((player) => player.bot));
+  const restored = new RoomManager("http://localhost:4173", store);
+  await restored.restore();
+  assert.equal(restored.get(room.id)?.roster.filter((player) => player.bot).length, bots.length);
+  rooms.detach(human);
+  assert.equal(room.autoTimer, null);
+});
+
+test("quick play chooses an available human table before a bot table", () => {
+  const rooms = new RoomManager("http://localhost:4173");
+  const botTable = rooms.quickJoin(socket(), "Alex");
+  assert.ok("code" in botTable);
+  const humanTable = rooms.create(true);
+  assert.equal(rooms.joinPlayer(socket(), humanTable.id, "Sam").ok, true);
+  const joined = rooms.quickJoin(socket(), "Kim");
+  assert.equal("code" in joined && joined.code, humanTable.id);
+});
