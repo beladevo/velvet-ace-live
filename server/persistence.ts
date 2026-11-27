@@ -55,8 +55,9 @@ export class PostgresRoomStore implements RoomStore {
   constructor(connectionString: string) {
     this.pool = new pg.Pool({
       connectionString,
-      connectionTimeoutMillis: 2000,
-      query_timeout: 3000,
+      max: 2,
+      connectionTimeoutMillis: 10000,
+      query_timeout: 10000,
     });
   }
 
