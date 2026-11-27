@@ -123,18 +123,20 @@ export function Player({
       </div>
       <div className="phone-table">
         <div className="phone-rail">
-          <div className="phone-felt">
-            <div className="phone-pot" key={game?.pot ?? 0}>
-              <span>TOTAL POT</span>
-              <strong>◉ {money(game?.pot ?? 0)}</strong>
+          <div className="phone-led">
+            <div className="phone-felt">
+              <div className="phone-pot" key={game?.pot ?? 0}>
+                <span>TOTAL POT</span>
+                <strong>◉ {money(game?.pot ?? 0)}</strong>
+              </div>
+              <Board game={game} compact />
+              {room.insight && game && game.board.length >= 3 && (
+                <span className="phone-hand-ribbon">{room.insight.hand}</span>
+              )}
+              <span className="phone-street">
+                {game?.phase.toUpperCase() ?? "WAITING TO DEAL"}
+              </span>
             </div>
-            <Board game={game} compact />
-            {room.insight && game && game.board.length >= 3 && (
-              <span className="phone-hand-ribbon">{room.insight.hand}</span>
-            )}
-            <span className="phone-street">
-              {game?.phase.toUpperCase() ?? "WAITING TO DEAL"}
-            </span>
           </div>
         </div>
       </div>
