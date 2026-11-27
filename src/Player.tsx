@@ -140,7 +140,10 @@ export function Player({
         <span>NO LIMIT HOLD’EM · 10 / 20</span>
       </div>
       <details className="player-invite">
-        <summary>INVITE FRIENDS · {room.code}</summary>
+        <summary>
+          <span className="invite-full-label">INVITE FRIENDS</span>
+          <span className="invite-short-label">INVITE</span> · {room.code}
+        </summary>
         <div>
           <span>{room.roster.length} / 6 SEATED</span>
           <input
@@ -163,6 +166,18 @@ export function Player({
           )}
         </div>
       </details>
+      <div className="phone-dealer" aria-label="Velvet Ace dealer">
+        <img src="/assets/dealer.png" alt="" />
+        {game && ["preflop", "flop", "turn", "river"].includes(game.phase) && (
+          <span
+            className="dealer-deal-card"
+            key={`${game.hand}-${game.board.length}`}
+            aria-hidden="true"
+          >
+            ♠
+          </span>
+        )}
+      </div>
       <div className="phone-table">
         <div className="phone-rail">
           <div className="phone-led">
@@ -259,7 +274,7 @@ export function Player({
               <Card
                 card={visibleCards ? card : undefined}
                 back={!visibleCards}
-                key={index}
+                key={`${game?.hand ?? 0}-${index}`}
               />
             ))
           ) : (
@@ -317,14 +332,29 @@ export function Player({
               <b className={seconds <= 10 ? "urgent" : ""}>{seconds}s</b>
             </div>
             <div className="primary-actions">
-              <button className="fold-button" onClick={() => act("fold")}>
-                FOLD
+              <button
+                className="fold-button"
+                onClick={() => act("fold")}
+                aria-label="Fold"
+              >
+                <span className="action-name">FOLD</span>
+                <span className="action-icon" aria-hidden="true">
+                  ×
+                </span>
               </button>
               <button
                 className="call-button"
                 onClick={() => act(legal.canCheck ? "check" : "call")}
+                aria-label={
+                  legal.canCheck ? "Check" : `Call ${money(legal.toCall)}`
+                }
               >
-                {legal.canCheck ? "CHECK" : `CALL ${money(legal.toCall)}`}
+                <span className="action-name">
+                  {legal.canCheck ? "CHECK" : `CALL ${money(legal.toCall)}`}
+                </span>
+                <span className="action-icon" aria-hidden="true">
+                  ✓
+                </span>
               </button>
               {legal.canRaise && (
                 <button
@@ -332,9 +362,16 @@ export function Player({
                   onClick={() => setRaiseOpen(true)}
                   aria-expanded={raiseOpen}
                   aria-controls="bet-picker"
+                  aria-label={
+                    game?.currentBet === 0 ? "Choose bet" : "Choose raise"
+                  }
                 >
-                  <span>♠</span>
-                  {game?.currentBet === 0 ? "BET" : "RAISE"}
+                  <span className="action-name">
+                    {game?.currentBet === 0 ? "BET" : "RAISE"}
+                  </span>
+                  <span className="action-icon" aria-hidden="true">
+                    ⌃
+                  </span>
                 </button>
               )}
             </div>
