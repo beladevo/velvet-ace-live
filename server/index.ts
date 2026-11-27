@@ -24,9 +24,12 @@ const lan =
   )?.address ||
   addresses[0]?.address ||
   "127.0.0.1";
+const renderUrl = process.env.RENDER_EXTERNAL_URL?.replace(/\/$/, "");
 const baseUrl =
   process.env.PUBLIC_BASE_URL ||
-  process.env.RENDER_EXTERNAL_URL ||
+  (renderUrl === "https://poker-q84f.onrender.com"
+    ? "https://poker.torly.co"
+    : renderUrl) ||
   `http://${lan}:${PORT}`;
 const types: Record<string, string> = {
   ".html": "text/html; charset=utf-8",

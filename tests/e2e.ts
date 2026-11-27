@@ -10,9 +10,9 @@ const child = spawn(process.execPath, ["dist/server/index.js"], {
     ...process.env,
     PORT: String(port),
     HOST: "127.0.0.1",
-    RENDER_EXTERNAL_URL: base,
+    RENDER_EXTERNAL_URL: "https://poker-q84f.onrender.com",
     ADMIN_PASSWORD: "e2e-admin-password",
-    PUBLIC_BASE_URL: base,
+    PUBLIC_BASE_URL: "",
   },
   stdio: ["ignore", "pipe", "pipe"],
 });
@@ -56,6 +56,8 @@ try {
   const response = await fetch(`${base}/api/rooms`, { method: "POST" });
   assert.equal(response.status, 201);
   const room = await response.json();
+  assert.equal(new URL(room.joinUrl).origin, "https://poker.torly.co");
+  assert.equal(new URL(room.tableUrl).origin, "https://poker.torly.co");
   assert.match(room.joinUrl, new RegExp(`join=${room.code}`));
   const qr = await fetch(`${base}/api/rooms/${room.code}/qr.svg`);
   assert.equal(qr.status, 200);
