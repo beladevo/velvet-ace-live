@@ -13,7 +13,6 @@ const child = spawn(process.execPath, ["dist/server/index.js"], {
     RENDER_EXTERNAL_URL: base,
     ADMIN_PASSWORD: "e2e-admin-password",
     PUBLIC_BASE_URL: base,
-    VIP_FLOP_INSIGHT_ENABLED: "true",
   },
   stdio: ["ignore", "pipe", "pipe"],
 });

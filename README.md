@@ -35,7 +35,7 @@ Render's Free web services can sleep after 15 minutes without inbound traffic, a
 
 ## Optional private hand insight
 
-Set `VIP_FLOP_INSIGHT_ENABLED=true` on the server to show a private flop, turn and river hand insight to the guest named exactly `beladev`. It estimates the chance to win or tie at showdown against unknown hands; it never uses opponents' dealt cards or the actual remaining deck. Guest names are self-entered, so this is a trial flag rather than secure VIP authentication.
+The `VIP_FLOP_INSIGHT_ENABLED` boolean in `server/flags.ts` controls the private flop, turn and river hand insight. It is currently on for the guest named exactly `beladev`; set it to `false` and restart the server to turn it off. The estimate uses unknown hands, never opponents' dealt cards or the actual remaining deck. Guest names are self-entered, so this is a trial flag rather than secure VIP authentication.
 
 ## Architecture
 

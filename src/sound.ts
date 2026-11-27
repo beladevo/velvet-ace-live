@@ -1,5 +1,6 @@
 let context: AudioContext | undefined;
 let chipNoise: AudioBuffer | undefined;
+let clapNoise: AudioBuffer | undefined;
 
 function chips(amount: number, audio: AudioContext): void {
   chipNoise ??= (() => {
@@ -44,6 +45,40 @@ function chips(amount: number, audio: AudioContext): void {
   }
 }
 
+function claps(audio: AudioContext): void {
+  clapNoise ??= (() => {
+    const buffer = audio.createBuffer(
+      1,
+      Math.ceil(audio.sampleRate * 0.12),
+      audio.sampleRate,
+    );
+    const samples = buffer.getChannelData(0);
+    for (let index = 0; index < samples.length; index++)
+      samples[index] = Math.random() * 2 - 1;
+    return buffer;
+  })();
+  const start = audio.currentTime + 0.01;
+  for (let index = 0; index < 14; index++) {
+    const at = start + index * 0.085 + Math.random() * 0.025;
+    const peak = 0.04 + 0.045 * Math.sin((Math.PI * (index + 1)) / 15);
+    const noise = audio.createBufferSource();
+    const filter = audio.createBiquadFilter();
+    const gain = audio.createGain();
+    noise.buffer = clapNoise;
+    filter.type = "bandpass";
+    filter.frequency.value = 1500 + (index % 4) * 160;
+    filter.Q.value = 0.7;
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(peak, at + 0.004);
+    gain.gain.exponentialRampToValueAtTime(peak * 0.3, at + 0.018);
+    gain.gain.exponentialRampToValueAtTime(peak * 0.7, at + 0.026);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.11);
+    noise.connect(filter).connect(gain).connect(audio.destination);
+    noise.start(at);
+    noise.stop(at + 0.12);
+  }
+}
+
 export function playSound(
   type: "chip" | "deal" | "turn" | "win" | "allin",
   enabled: boolean,
@@ -57,31 +92,33 @@ export function playSound(
       chips(amount, context);
       return;
     }
+    if (type === "win") {
+      claps(context);
+      return;
+    }
     const notes = {
       deal: [330, 247, 392],
       turn: [587, 784],
-      win: [523, 659, 784, 1047],
       allin: [196, 247, 330, 392],
     }[type];
     for (const [index, frequency] of notes.entries()) {
       const oscillator = context.createOscillator();
       const gain = context.createGain();
       const at = context.currentTime + index * 0.075;
-      oscillator.type =
-        type === "win" ? "sine" : type === "allin" ? "sawtooth" : "triangle";
+      oscillator.type = type === "allin" ? "sawtooth" : "triangle";
       oscillator.frequency.value = frequency;
       gain.gain.setValueAtTime(0.0001, at);
       gain.gain.exponentialRampToValueAtTime(
-        type === "win" ? 0.06 : type === "allin" ? 0.025 : 0.035,
+        type === "allin" ? 0.025 : 0.035,
         at + 0.01,
       );
       gain.gain.exponentialRampToValueAtTime(
         0.0001,
-        at + (type === "win" || type === "allin" ? 0.32 : 0.16),
+        at + (type === "allin" ? 0.32 : 0.16),
       );
       oscillator.connect(gain).connect(context.destination);
       oscillator.start(at);
-      oscillator.stop(at + (type === "win" || type === "allin" ? 0.33 : 0.17));
+      oscillator.stop(at + (type === "allin" ? 0.33 : 0.17));
     }
   } catch {
     /* Browsers may restrict audio until interaction. */
