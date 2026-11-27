@@ -1096,6 +1096,9 @@ button:disabled {
     color: #69dca7;
   }
 }
+.player-chat-toggle {
+  display: none;
+}
 .phone-table {
   width: min(94vw, 560px);
   height: clamp(175px, 40vw, 255px);
@@ -2381,8 +2384,7 @@ button:disabled {
     position: relative;
     height: 100dvh;
     padding-bottom: max(12px, env(safe-area-inset-bottom));
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow: hidden;
     background:
       linear-gradient(#0a1023aa, #100b1ed9),
       url("/assets/casino-lounge.png") center / cover;
@@ -2405,6 +2407,29 @@ button:disabled {
       min-width: 36px;
       min-height: 36px;
       font-size: 18px;
+    }
+    > div .player-settings-toggle,
+    > div .player-chat-toggle {
+      position: fixed;
+      z-index: 16;
+      bottom: max(8px, env(safe-area-inset-bottom));
+      display: grid;
+      place-items: center;
+      width: 48px;
+      height: 48px;
+      border-color: #d9b171;
+      background: #2d1730ed;
+      color: #ffe8b4;
+      box-shadow:
+        0 3px 0 #120b19,
+        0 0 12px #d79d5866;
+    }
+    > div .player-settings-toggle {
+      left: max(8px, env(safe-area-inset-left));
+    }
+    > div .player-chat-toggle {
+      left: calc(max(8px, env(safe-area-inset-left)) + 56px);
+      font-size: 23px;
     }
   }
   .player-status {
@@ -2674,9 +2699,45 @@ button:disabled {
     margin: 0;
   }
   .social-strip {
-    margin-top: 100dvh;
+    display: none;
+    position: fixed;
+    z-index: 15;
+    left: max(8px, env(safe-area-inset-left));
+    bottom: calc(max(8px, env(safe-area-inset-bottom)) + 58px);
+    width: min(340px, 48vw);
+    max-height: calc(100dvh - 108px);
+    margin: 0;
+    overflow-y: auto;
+    background: #211629f5;
+    box-shadow: 0 12px 35px #000b;
+    &.open {
+      display: grid;
+    }
+    .social-reactions button {
+      min-height: 40px;
+      font-size: 20px;
+    }
   }
   .player-settings {
-    z-index: 12;
+    z-index: 20;
+    top: auto;
+    bottom: calc(max(8px, env(safe-area-inset-bottom)) + 58px);
+    left: max(8px, env(safe-area-inset-left));
+    right: auto;
+    width: min(320px, 54vw);
+    max-height: calc(100dvh - 108px);
+    margin: 0;
+    padding: 10px;
+    gap: 6px;
+    overflow-y: auto;
+    .avatar-picker {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      button {
+        min-height: 40px;
+      }
+    }
+    .show-cards-setting {
+      min-height: 32px;
+    }
   }
 }

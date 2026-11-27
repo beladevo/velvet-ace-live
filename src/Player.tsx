@@ -33,6 +33,7 @@ export function Player({
     localStorage.getItem("va-show-cards") === "on",
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [socialOpen, setSocialOpen] = useState(false);
   const [raiseOpen, setRaiseOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [now, setNow] = useState(Date.now());
@@ -72,11 +73,27 @@ export function Player({
             {sound ? "♫" : "♪"}
           </button>
           <button
-            onClick={() => setSettingsOpen((open) => !open)}
+            className="player-settings-toggle"
+            onClick={() => {
+              setSocialOpen(false);
+              setSettingsOpen((open) => !open);
+            }}
             aria-label="Player settings"
             aria-expanded={settingsOpen}
           >
             ⚙
+          </button>
+          <button
+            className="player-chat-toggle"
+            onClick={() => {
+              setSettingsOpen(false);
+              setSocialOpen((open) => !open);
+            }}
+            aria-label="Chat and reactions"
+            aria-controls="player-social"
+            aria-expanded={socialOpen}
+          >
+            💬
           </button>
         </div>
       </header>
@@ -421,7 +438,13 @@ export function Player({
           </div>
         )}
       </section>
-      <div className="social-strip">
+      <div
+        className={`social-strip ${socialOpen ? "open" : ""}`}
+        id="player-social"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") setSocialOpen(false);
+        }}
+      >
         <div className="social-reactions">
           {reactions.map((emoji) => (
             <button
