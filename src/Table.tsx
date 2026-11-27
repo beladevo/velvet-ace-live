@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { RoomView } from "../shared/types";
 import { Board, Brand, Seat, money } from "./ui";
 export function Table({
@@ -20,12 +20,27 @@ export function Table({
     seat: number;
     amount: number;
   } | null>(null);
+  const [payoutFx, setPayoutFx] = useState<
+    {
+      seat: number;
+      amount: number;
+      x: number;
+      y: number;
+      dx: number;
+      dy: number;
+    }[]
+  >([]);
   const [allInFx, setAllInFx] = useState(false);
   const [showdownCardsVisible, setShowdownCardsVisible] = useState(false);
-  const lastPot = useRef<{ hand: number; pot: number; turn: number } | null>(
-    null,
-  );
+  const stageRef = useRef<HTMLDivElement>(null);
+  const lastPot = useRef<{
+    hand: number;
+    pot: number;
+    turn: number;
+    phase: string;
+  } | null>(null);
   const chipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const payoutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(timer);
@@ -33,6 +48,7 @@ export function Table({
   useEffect(
     () => () => {
       if (chipTimer.current) clearTimeout(chipTimer.current);
+      if (payoutTimer.current) clearTimeout(payoutTimer.current);
     },
     [],
   );
@@ -53,10 +69,44 @@ export function Table({
       if (chipTimer.current) clearTimeout(chipTimer.current);
       chipTimer.current = setTimeout(() => setChipFx(null), 1050);
     }
+    if (
+      game?.phase === "showdown" &&
+      previous &&
+      game.hand === previous.hand &&
+      previous.phase !== "showdown" &&
+      game.winners.length > 0
+    ) {
+      const stage = stageRef.current;
+      const pot = stage?.querySelector(".pot");
+      if (stage && pot) {
+        const stageRect = stage.getBoundingClientRect();
+        const potRect = pot.getBoundingClientRect();
+        const x = potRect.left + potRect.width / 2 - stageRect.left;
+        const y = potRect.top + potRect.height / 2 - stageRect.top;
+        const payouts = game.winners.flatMap(({ seat, amount }) => {
+          const target = stage.querySelector(`.seat-${seat} .seat-info`);
+          if (!target) return [];
+          const targetRect = target.getBoundingClientRect();
+          return [
+            {
+              seat,
+              amount,
+              x,
+              y,
+              dx: targetRect.left + targetRect.width / 2 - stageRect.left - x,
+              dy: targetRect.top + targetRect.height / 2 - stageRect.top - y,
+            },
+          ];
+        });
+        setPayoutFx(payouts);
+        if (payoutTimer.current) clearTimeout(payoutTimer.current);
+        payoutTimer.current = setTimeout(() => setPayoutFx([]), 1500);
+      }
+    }
     lastPot.current = game
-      ? { hand: game.hand, pot: game.pot, turn: game.turn }
+      ? { hand: game.hand, pot: game.pot, turn: game.turn, phase: game.phase }
       : null;
-  }, [room?.game?.hand, room?.game?.pot, room?.game?.turn]);
+  }, [room?.game?.hand, room?.game?.pot, room?.game?.turn, room?.game?.phase]);
   useEffect(() => {
     if (!room?.game?.history[0]?.message.toLowerCase().includes("all in"))
       return;
@@ -126,7 +176,7 @@ export function Table({
           Table paused by admin
         </p>
       )}
-      <div className="game-stage">
+      <div className="game-stage" ref={stageRef}>
         {chipFx && (
           <div
             key={chipFx.key}
@@ -137,6 +187,28 @@ export function Table({
             <span>+{money(chipFx.amount)}</span>
           </div>
         )}
+        {payoutFx.map(({ seat, amount, x, y, dx, dy }) => (
+          <div
+            key={`${game?.hand}-${seat}`}
+            className="payout-flight"
+            style={
+              {
+                left: x,
+                top: y,
+                "--dx": `${dx}px`,
+                "--dy": `${dy}px`,
+              } as CSSProperties
+            }
+            aria-hidden="true"
+          >
+            <span className="payout-chips">
+              <i />
+              <i />
+              <i />
+            </span>
+            <strong>+{money(amount)}</strong>
+          </div>
+        ))}
         {allInFx && (
           <div className="allin-flare" aria-live="polite">
             <strong>ALL IN!</strong>

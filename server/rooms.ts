@@ -9,6 +9,7 @@ import type {
   SocialKind,
 } from "../shared/types.js";
 import { PokerGame } from "./game.js";
+import { VIP_FLOP_INSIGHT_ENABLED } from "./flags.js";
 import { clientIp } from "./client-ip.js";
 import {
   secretHash,
@@ -88,7 +89,6 @@ export class RoomManager {
   private bans = new Map<string, Ban>();
   private bansDirty = false;
   private bansVersion = 0;
-  private insightEnabled = process.env.VIP_FLOP_INSIGHT_ENABLED === "true";
   constructor(
     publicBaseUrl: string,
     private store?: RoomStore,
@@ -701,7 +701,7 @@ export class RoomManager {
       if (room.config.paused && gameView) gameView.legal = null;
       const vip = room.roster.find((player) => player.id === viewerId);
       let insight: FlopInsight | null = null;
-      if (this.insightEnabled && vip?.name === "beladev" && gameView) {
+      if (VIP_FLOP_INSIGHT_ENABLED && vip?.name === "beladev" && gameView) {
         const key = insightKey(gameView, vip.id);
         const cached = room.insightCache.get(vip.id);
         insight = cached?.key === key ? cached.insight : createFlopInsight(gameView, vip.id);
