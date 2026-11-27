@@ -78,6 +78,11 @@ export function Player({
           </button>
         </div>
       </header>
+      {room.paused && (
+        <p className="table-paused" role="status">
+          Table paused by admin
+        </p>
+      )}
       {settingsOpen && (
         <div className="player-settings">
           <div className="settings-title">
@@ -158,7 +163,9 @@ export function Player({
               name={player.name}
             />
             <strong>{player.name}</strong>
-            <span>◉ {money("stack" in player ? player.stack : 1500)}</span>
+            <span>
+              ◉ {money("stack" in player ? player.stack : room.startingStack)}
+            </span>
           </div>
         ))}
       </div>
@@ -174,7 +181,7 @@ export function Player({
           </div>
           <div>
             <span>YOUR STACK</span>
-            <strong>◉ {money(me?.stack ?? 1500)}</strong>
+            <strong>◉ {money(me?.stack ?? room.startingStack)}</strong>
           </div>
         </div>
         <button

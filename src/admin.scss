@@ -1,0 +1,268 @@
+@use "sass:color";
+
+$ink: #f4ecda;
+$muted: #b9b7ad;
+$gold: #e5bf76;
+$line: #35443e;
+$surface: #172720;
+
+* {
+  box-sizing: border-box;
+}
+html {
+  color-scheme: dark;
+}
+body {
+  margin: 0;
+  background: #0d1916;
+  color: $ink;
+  font:
+    1rem/1.5 system-ui,
+    sans-serif;
+}
+a {
+  color: $gold;
+}
+button,
+input {
+  font: inherit;
+}
+button,
+input[type="number"],
+input:not([type]) {
+  min-block-size: 2.75rem;
+}
+button {
+  border: 1px solid $gold;
+  border-radius: 0.4rem;
+  padding: 0.5rem 0.8rem;
+  background: $gold;
+  color: #17231d;
+  font-weight: 700;
+  cursor: pointer;
+}
+button:hover {
+  background: color.adjust($gold, $lightness: 9%);
+}
+button.danger {
+  background: #6d2b2b;
+  border-color: #dc9994;
+  color: white;
+}
+:where(a, button, input):focus-visible {
+  outline: 3px solid #fff0b2;
+  outline-offset: 3px;
+}
+input:not([type="checkbox"]) {
+  inline-size: 100%;
+  min-inline-size: 8rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #9da79d;
+  border-radius: 0.35rem;
+  background: #0c1814;
+  color: $ink;
+}
+input:user-invalid {
+  border-color: #f1a099;
+}
+input[type="checkbox"] {
+  accent-color: $gold;
+  inline-size: 1.2rem;
+  block-size: 1.2rem;
+}
+.admin {
+  max-inline-size: 96rem;
+  margin: auto;
+  padding: clamp(1rem, 3vw, 2.5rem);
+}
+header,
+.panel-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+h1,
+h2,
+p {
+  margin-block: 0 0.7rem;
+}
+h1 {
+  font:
+    700 clamp(2rem, 4vw, 3.4rem)/1.1 Georgia,
+    serif;
+}
+h2 {
+  font:
+    700 1.5rem/1.2 Georgia,
+    serif;
+}
+h2 span {
+  font:
+    600 1rem system-ui,
+    sans-serif;
+  color: $muted;
+}
+.eyebrow {
+  color: $gold;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+.header-meta {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  color: $muted;
+}
+.notice {
+  margin-block: 1.5rem;
+  padding: 0.8rem 1rem;
+  border-inline-start: 3px solid $gold;
+  background: #26352d;
+}
+.panel {
+  margin-block: 1.25rem;
+  padding: clamp(1rem, 2vw, 1.5rem);
+  border: 1px solid $line;
+  border-radius: 0.7rem;
+  background: $surface;
+}
+.panel-heading {
+  margin-block-end: 1rem;
+}
+.table-wrap {
+  overflow: auto;
+  max-block-size: 34rem;
+  container-type: inline-size;
+}
+table {
+  inline-size: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  text-align: start;
+}
+thead {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  background: #26382d;
+}
+th,
+td {
+  padding: 0.65rem 0.8rem;
+  border-block-end: 1px solid $line;
+  text-align: start;
+  vertical-align: top;
+}
+tbody th {
+  position: sticky;
+  inset-inline-start: 0;
+  background: $surface;
+}
+code {
+  font:
+    0.85rem/1.4 ui-monospace,
+    monospace;
+  overflow-wrap: anywhere;
+}
+td[title] {
+  max-inline-size: 18rem;
+  overflow-wrap: anywhere;
+}
+.actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.actions form {
+  display: inline-flex;
+}
+.actions button,
+td button {
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.config,
+.ban-form {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 0.8rem 1rem;
+  margin-block-start: 1.2rem;
+}
+.config label,
+.ban-form label {
+  display: grid;
+  gap: 0.3rem;
+  color: $muted;
+}
+.config label:has([type="checkbox"]) {
+  display: flex;
+  align-items: center;
+  color: $ink;
+}
+.config input[type="number"] {
+  max-inline-size: 10rem;
+}
+.confirm {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-block-end: 0.5rem;
+}
+@container (width < 600px) {
+  .room table,
+  .room thead,
+  .room tbody,
+  .room tr,
+  .room th,
+  .room td {
+    display: block;
+  }
+  .room thead {
+    display: none;
+  }
+  .room tbody tr {
+    margin-block-end: 1rem;
+    border: 1px solid $line;
+    border-radius: 0.4rem;
+  }
+  .room tbody th {
+    position: static;
+    background: #26382d;
+  }
+  .room tbody td::before {
+    color: $muted;
+    font-weight: 700;
+    margin-inline-end: 0.5rem;
+  }
+  .room tbody td:nth-child(2)::before {
+    content: "Seat:";
+  }
+  .room tbody td:nth-child(3)::before {
+    content: "Stack:";
+  }
+  .room tbody td:nth-child(4)::before {
+    content: "Status:";
+  }
+  .room tbody td:nth-child(5)::before {
+    content: "Last IP:";
+  }
+  .room tbody td:nth-child(6)::before {
+    content: "Browser:";
+  }
+  .room tbody td:nth-child(7)::before {
+    content: "First seen:";
+  }
+  .room tbody td:nth-child(8)::before {
+    content: "Last seen:";
+  }
+}
+@media (pointer: coarse) {
+  button,
+  input {
+    min-block-size: 3rem;
+  }
+}

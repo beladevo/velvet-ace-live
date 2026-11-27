@@ -68,6 +68,8 @@ export interface SocialEvent {
 }
 export interface RoomView {
   code: string;
+  paused: boolean;
+  startingStack: number;
   role: "host" | "player";
   playerId: string | null;
   roster: RosterView[];

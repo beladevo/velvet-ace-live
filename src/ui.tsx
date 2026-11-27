@@ -137,6 +137,7 @@ export function Seat({
   avatar,
   bubble,
   revealCards = false,
+  startingStack = 1500,
 }: {
   player?: SeatPlayer;
   seat: number;
@@ -144,6 +145,7 @@ export function Seat({
   avatar?: number;
   bubble?: string;
   revealCards?: boolean;
+  startingStack?: number;
 }) {
   const inGame = player && "stack" in player ? player : undefined;
   const isTurn = game?.turn === seat;
@@ -174,7 +176,7 @@ export function Seat({
           )}
           <div className="seat-info">
             <strong>{player.name}</strong>
-            <span>◉ {money(inGame?.stack ?? 1500)}</span>
+            <span>◉ {money(inGame?.stack ?? startingStack)}</span>
           </div>
           {inGame?.bet ? (
             <span className="seat-bet">

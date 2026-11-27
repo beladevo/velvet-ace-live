@@ -2127,3 +2127,17 @@ button:disabled {
     transform: scale(1);
   }
 }
+.table-paused {
+  position: relative;
+  z-index: 10;
+  margin: 0.5rem auto;
+  padding: 0.6rem 1rem;
+  width: fit-content;
+  max-width: calc(100% - 2rem);
+  border: 1px solid #e7bd70;
+  border-radius: 0.5rem;
+  background: #3a291c;
+  color: #fff2d5;
+  text-align: center;
+  font-weight: 700;
+}

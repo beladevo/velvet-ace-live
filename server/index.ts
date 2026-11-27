@@ -5,6 +5,9 @@ import { networkInterfaces } from "node:os";
 import { Server } from "socket.io";
 import QRCode from "qrcode";
 import { RoomManager } from "./rooms.js";
+import { PostgresRoomStore } from "./persistence.js";
+import { handleAdmin } from "./admin.js";
+import { clientIp } from "./client-ip.js";
 
 const PORT = Number(process.env.PORT || 4173);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -21,7 +24,10 @@ const lan =
   )?.address ||
   addresses[0]?.address ||
   "127.0.0.1";
-const baseUrl = process.env.PUBLIC_BASE_URL || `http://${lan}:${PORT}`;
+const baseUrl =
+  process.env.PUBLIC_BASE_URL ||
+  process.env.RENDER_EXTERNAL_URL ||
+  `http://${lan}:${PORT}`;
 const types: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -32,7 +38,22 @@ const types: Record<string, string> = {
 };
 
 let rooms: RoomManager;
+const limits = new Map<string, { count: number; until: number }>();
+function allowed(key: string, max: number, windowMs: number): boolean {
+  const now = Date.now();
+  const previous = limits.get(key);
+  const next =
+    previous && previous.until > now
+      ? { count: previous.count + 1, until: previous.until }
+      : { count: 1, until: now + windowMs };
+  limits.set(key, next);
+  if (limits.size > 10_000)
+    for (const [id, entry] of limits) if (entry.until <= now) limits.delete(id);
+  while (limits.size > 10_000) limits.delete(limits.keys().next().value!);
+  return next.count <= max;
+}
 const server = http.createServer(async (request, response) => {
+  if (await handleAdmin(request, response, rooms)) return;
   const url = new URL(
     request.url ?? "/",
     `http://${request.headers.host || "localhost"}`,
@@ -46,6 +67,11 @@ const server = http.createServer(async (request, response) => {
   };
   if (url.pathname === "/api/health") return sendJson(200, { ok: true });
   if (url.pathname === "/api/rooms" && request.method === "POST") {
+    const ip = clientIp(request.headers, request.socket.remoteAddress);
+    if (!allowed(`create:${ip}`, 10, 60 * 60_000))
+      return sendJson(429, { error: "Too many tables created. Try later." });
+    if (rooms.count() >= 200)
+      return sendJson(503, { error: "Table capacity reached." });
     const room = rooms.create();
     return sendJson(201, {
       code: room.id,
@@ -90,15 +116,25 @@ const io = new Server(server, {
   transports: ["websocket", "polling"],
   maxHttpBufferSize: 1e5,
 });
-rooms = new RoomManager(baseUrl);
+rooms = new RoomManager(
+  baseUrl,
+  process.env.DATABASE_URL
+    ? new PostgresRoomStore(process.env.DATABASE_URL)
+    : undefined,
+);
+await rooms.restore();
 io.on("connection", (socket) => {
   socket.on("host:watch", ({ code, key } = {}, ack = () => {}) =>
     ack(rooms.bindHost(socket, code, key)),
   );
   socket.on(
     "player:join",
-    ({ code, name, token, avatar } = {}, ack = () => {}) =>
-      ack(rooms.joinPlayer(socket, code, name, token, avatar)),
+    ({ code, name, token, avatar } = {}, ack = () => {}) => {
+      const ip = clientIp(socket.handshake.headers, socket.handshake.address);
+      if (!allowed(`join:${ip}`, 60, 10 * 60_000))
+        return ack({ error: "Too many join attempts. Try later." });
+      ack(rooms.joinPlayer(socket, code, name, token, avatar));
+    },
   );
   socket.on("player:avatar", ({ avatar } = {}, ack = () => {}) =>
     ack(rooms.setAvatar(socket, avatar)),
@@ -127,4 +163,13 @@ server.listen(PORT, HOST, () => {
   console.log(
     `Phones must be on the same Wi-Fi. Set PUBLIC_BASE_URL if this address is not reachable.\n`,
   );
+});
+process.once("SIGTERM", () => {
+  const forceExit = setTimeout(() => process.exit(0), 6000);
+  io.close(() => {
+    void rooms.drain(5000).finally(() => {
+      clearTimeout(forceExit);
+      process.exit(0);
+    });
+  });
 });

@@ -10,7 +10,8 @@ const child = spawn(process.execPath, ["dist/server/index.js"], {
     ...process.env,
     PORT: String(port),
     HOST: "127.0.0.1",
-    PUBLIC_BASE_URL: base,
+    RENDER_EXTERNAL_URL: base,
+    ADMIN_PASSWORD: "e2e-admin-password",
   },
   stdio: ["ignore", "pipe", "pipe"],
 });
@@ -23,8 +24,12 @@ const waitFor = async (predicate, label, timeout = 5000) => {
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
 };
-const connect = async (name) => {
-  const socket = io(base, { transports: ["websocket"], reconnection: false });
+const connect = async (name, extraHeaders) => {
+  const socket = io(base, {
+    transports: ["websocket"],
+    reconnection: false,
+    extraHeaders,
+  });
   sockets.push(socket);
   socket.on("room:state", (value) => state.set(name, value));
   await new Promise((resolve, reject) => {
@@ -177,8 +182,130 @@ try {
       nextHand.pot,
     4500,
   );
+  const unsafe = await connect("unsafe", {
+    "user-agent": "<script>alert(1)</script>",
+  });
+  assert.equal(
+    (
+      await unsafe.emitWithAck("player:join", {
+        code: room.code,
+        name: "Visitor",
+      })
+    ).ok,
+    true,
+  );
+  const deniedAdmin = await fetch(`${base}/admin`);
+  assert.equal(deniedAdmin.status, 401);
+  const authorization = `Basic ${Buffer.from("admin:e2e-admin-password").toString("base64")}`;
+  const adminPage = await fetch(`${base}/admin`, {
+    headers: { authorization },
+  });
+  assert.equal(adminPage.status, 200);
+  const adminHtml = await adminPage.text();
+  assert.match(adminHtml, new RegExp(room.code));
+  assert.match(adminHtml, /Alex/);
+  assert.match(adminHtml, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.equal(adminHtml.includes("<script>alert(1)</script>"), false);
+  const csrf = /name="csrf" value="([a-f0-9]+)"/.exec(adminHtml)?.[1];
+  assert.ok(csrf);
+  const adminAction = (fields) =>
+    fetch(`${base}/admin/action`, {
+      method: "POST",
+      redirect: "manual",
+      headers: {
+        authorization,
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ csrf, ...fields }),
+    });
+  assert.equal(
+    (
+      await fetch(`${base}/admin/action`, {
+        method: "POST",
+        headers: {
+          authorization,
+          "content-type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          action: "close",
+          code: room.code,
+          confirm: "close",
+        }),
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await adminAction({
+        action: "config",
+        code: room.code,
+        paused: "on",
+        autoDeal: "on",
+        turnSeconds: "45",
+        startingStack: "2000",
+      })
+    ).status,
+    303,
+  );
+  await waitFor(() => state.get("host")?.paused === true, "admin pause");
+  assert.equal(state.get("host").startingStack, 2000);
+  assert.equal(state.get("host").game.legal, null);
+  assert.deepEqual(await host.emitWithAck("host:deal", {}), {
+    error: "This table is paused.",
+  });
+  const samId = state
+    .get("host")
+    .roster.find((player) => player.name === "Sam").id;
+  assert.equal(
+    (
+      await adminAction({
+        action: "ban-guest",
+        code: room.code,
+        playerId: samId,
+      })
+    ).status,
+    303,
+  );
+  const bannedGuest = await connect("banned-guest");
+  assert.ok(
+    (
+      await bannedGuest.emitWithAck("player:join", {
+        code: room.code,
+        name: "Sam",
+        token: b.token,
+      })
+    ).error,
+  );
+  assert.equal(
+    (await adminAction({ action: "ban-ip", ip: "127.0.0.1" })).status,
+    303,
+  );
+  const bannedIp = await connect("banned-ip");
+  assert.ok(
+    (
+      await bannedIp.emitWithAck("player:join", {
+        code: room.code,
+        name: "Pat",
+      })
+    ).error,
+  );
+  assert.equal(
+    (await adminAction({ action: "unban", kind: "ip", value: "127.0.0.1" }))
+      .status,
+    303,
+  );
+  assert.equal(
+    (await adminAction({ action: "close", code: room.code, confirm: "close" }))
+      .status,
+    303,
+  );
+  assert.equal(
+    (await fetch(`${base}/api/rooms/${room.code}/qr.svg`)).status,
+    404,
+  );
   console.log(
-    "E2E passed: QR, real-time joins, private cards, turn enforcement, automatic hands and late seating.",
+    "E2E passed: game flow, private cards, admin access, controls and bans.",
   );
 } finally {
   sockets.forEach((socket) => socket.disconnect());

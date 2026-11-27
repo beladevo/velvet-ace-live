@@ -1,4 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
+import { isIP } from "node:net";
 import type { Socket } from "socket.io";
 import type {
   ActionType,
@@ -7,19 +8,39 @@ import type {
   SocialKind,
 } from "../shared/types.js";
 import { PokerGame } from "./game.js";
+import { clientIp } from "./client-ip.js";
+import {
+  secretHash,
+  type Ban,
+  type RoomStore,
+  type SavedRoom,
+} from "./persistence.js";
 
 interface RosterPlayer {
   id: string;
-  token: string;
+  tokenHash: string;
   name: string;
   connected: boolean;
   seat: number;
   avatar: number;
   lastSocialAt: number;
+  ip: string;
+  userAgent: string;
+  firstSeenAt: number;
+  lastSeenAt: number;
 }
+type RoomConfig = SavedRoom["config"];
+const defaultConfig = (): RoomConfig => ({
+  paused: false,
+  locked: false,
+  autoDeal: true,
+  turnSeconds: 35,
+  startingStack: 1500,
+});
 interface Room {
   id: string;
-  hostKey: string;
+  hostKey: string | null;
+  hostKeyHash: string;
   roster: RosterPlayer[];
   sockets: Map<string, Socket>;
   game: PokerGame | null;
@@ -30,7 +51,10 @@ interface Room {
   autoKey: string | null;
   autoDealAt: number | null;
   createdAt: number;
+  lastActiveAt: number;
   social: SocialEvent[];
+  recoveryUntil: number | null;
+  config: RoomConfig;
 }
 
 const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -53,8 +77,176 @@ const validAvatar = (value: unknown): number =>
 export class RoomManager {
   private rooms = new Map<string, Room>();
   private publicBaseUrl: string;
-  constructor(publicBaseUrl: string) {
+  private pending = new Map<string, SavedRoom>();
+  private pendingDeletes = new Set<string>();
+  private flushing = false;
+  private databaseOnline = true;
+  private restorePending = false;
+  private bans = new Map<string, Ban>();
+  private bansDirty = false;
+  private bansVersion = 0;
+  constructor(
+    publicBaseUrl: string,
+    private store?: RoomStore,
+  ) {
     this.publicBaseUrl = publicBaseUrl.replace(/\/$/, "");
+    if (store) setInterval(() => void this.flush(), 5000).unref();
+  }
+
+  async restore(): Promise<void> {
+    if (!this.store) return;
+    try {
+      this.restoreRooms(await this.store.load());
+      this.bans = new Map(
+        (await this.store.loadBans()).map((ban) => [
+          `${ban.kind}:${ban.value}`,
+          ban,
+        ]),
+      );
+      this.databaseOnline = true;
+    } catch (error) {
+      this.databaseOnline = false;
+      this.restorePending = true;
+      console.warn("Database unavailable; using in-memory rooms:", error);
+    }
+  }
+
+  private restoreRooms(savedRooms: SavedRoom[]): void {
+    for (const saved of savedRooms) {
+      if (saved.version !== 1 || this.rooms.has(saved.id)) continue;
+      const room: Room = {
+        id: saved.id,
+        hostKey: null,
+        hostKeyHash: saved.hostKeyHash,
+        roster: saved.roster.map((player) => ({
+          ...player,
+          connected: false,
+          lastSocialAt: 0,
+        })),
+        sockets: new Map(),
+        game: null,
+        deadline: null,
+        timer: null,
+        turnKey: null,
+        autoTimer: null,
+        autoKey: null,
+        autoDealAt: null,
+        createdAt: saved.createdAt,
+        lastActiveAt: saved.lastActiveAt ?? saved.createdAt,
+        social: [],
+        recoveryUntil: saved.game ? Date.now() + 60_000 : null,
+        config: saved.config ?? defaultConfig(),
+      };
+      room.game = saved.game
+        ? PokerGame.restore(saved.game, () => this.send(room))
+        : null;
+      this.rooms.set(room.id, room);
+    }
+  }
+
+  private checkpoint(room: Room): SavedRoom {
+    return {
+      version: 1,
+      id: room.id,
+      hostKeyHash: room.hostKeyHash,
+      createdAt: room.createdAt,
+      lastActiveAt: room.lastActiveAt,
+      roster: room.roster.map(
+        ({
+          id,
+          tokenHash,
+          name,
+          seat,
+          avatar,
+          ip,
+          userAgent,
+          firstSeenAt,
+          lastSeenAt,
+        }) => ({
+          id,
+          tokenHash,
+          name,
+          seat,
+          avatar,
+          ip,
+          userAgent,
+          firstSeenAt,
+          lastSeenAt,
+        }),
+      ),
+      game: room.game?.checkpoint() ?? null,
+      config: room.config,
+    };
+  }
+
+  private save(room: Room): void {
+    room.lastActiveAt = Date.now();
+    if (!this.store) return;
+    this.pending.set(room.id, structuredClone(this.checkpoint(room)));
+    void this.flush();
+  }
+
+  private async flush(): Promise<void> {
+    if (!this.store || this.flushing) return;
+    this.flushing = true;
+    try {
+      if (this.restorePending) {
+        this.restoreRooms(await this.store.load());
+        const savedBans = await this.store.loadBans();
+        this.bans = new Map([
+          ...savedBans.map((ban) => [`${ban.kind}:${ban.value}`, ban] as const),
+          ...this.bans,
+        ]);
+        this.restorePending = false;
+      }
+      if (this.bansDirty) {
+        const version = this.bansVersion;
+        await this.store.saveBans([...this.bans.values()]);
+        if (this.bansVersion === version) this.bansDirty = false;
+      }
+      while (this.pending.size || this.pendingDeletes.size) {
+        const entry = this.pending.entries().next().value;
+        if (entry) {
+          const [id, snapshot] = entry;
+          await this.store.save(snapshot);
+          if (this.pending.get(id) === snapshot) this.pending.delete(id);
+        } else {
+          const id = this.pendingDeletes.values().next().value!;
+          await this.store.delete(id);
+          this.pendingDeletes.delete(id);
+        }
+      }
+      if (!this.databaseOnline) console.info("Database connection restored.");
+      this.databaseOnline = true;
+    } catch (error) {
+      if (this.databaseOnline)
+        console.warn("Database unavailable; continuing in memory:", error);
+      this.databaseOnline = false;
+    } finally {
+      this.flushing = false;
+      if (
+        this.databaseOnline &&
+        (this.pending.size || this.pendingDeletes.size || this.bansDirty)
+      )
+        void this.flush();
+    }
+  }
+
+  async drain(timeoutMs = 5000): Promise<boolean> {
+    if (!this.store) return true;
+    const until = Date.now() + timeoutMs;
+    do {
+      await this.flush();
+      if (
+        !this.flushing &&
+        !this.pending.size &&
+        !this.pendingDeletes.size &&
+        !this.bansDirty
+      )
+        return true;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    } while (Date.now() < until);
+    return false;
   }
 
   create(): Room {
@@ -62,9 +254,11 @@ export class RoomManager {
     do {
       id = code();
     } while (this.rooms.has(id));
+    const hostKey = token();
     const room: Room = {
       id,
-      hostKey: token(),
+      hostKey,
+      hostKeyHash: secretHash(hostKey),
       roster: [],
       sockets: new Map(),
       game: null,
@@ -75,14 +269,21 @@ export class RoomManager {
       autoKey: null,
       autoDealAt: null,
       createdAt: Date.now(),
+      lastActiveAt: Date.now(),
       social: [],
+      recoveryUntil: null,
+      config: defaultConfig(),
     };
     this.rooms.set(id, room);
+    this.save(room);
     return room;
   }
 
   get(id: unknown): Room | undefined {
     return this.rooms.get(String(id ?? "").toUpperCase());
+  }
+  count(): number {
+    return this.rooms.size;
   }
   joinUrl(room: Room): string {
     return `${this.publicBaseUrl}/?join=${room.id}`;
@@ -93,7 +294,12 @@ export class RoomManager {
 
   bindHost(socket: Socket, id: unknown, key: unknown) {
     const room = this.get(id);
-    if (!room || room.hostKey !== key) return { error: "Invalid table link." };
+    if (
+      !room ||
+      typeof key !== "string" ||
+      room.hostKeyHash !== secretHash(key)
+    )
+      return { error: "Invalid table link." };
     this.attach(socket, room, "host", null);
     this.send(room);
     return { ok: true };
@@ -108,32 +314,62 @@ export class RoomManager {
   ) {
     const room = this.get(id);
     if (!room) return { error: "Table not found. Check the code on the TV." };
+    const ip = clientIp(
+      socket.handshake?.headers ?? {},
+      socket.handshake?.address,
+    );
+    if (this.bans.has(`ip:${ip}`))
+      return { error: "Access to this table is unavailable." };
+    if (
+      typeof existingToken === "string" &&
+      this.bans.has(`guest:${secretHash(existingToken)}`)
+    )
+      return { error: "Access to this table is unavailable." };
     let player =
       typeof existingToken === "string"
-        ? room.roster.find((item) => item.token === existingToken)
+        ? room.roster.find(
+            (item) => item.tokenHash === secretHash(existingToken),
+          )
         : undefined;
+    let newToken: string | null = null;
     if (!player) {
+      if (room.config.locked)
+        return { error: "This table is locked to new guests." };
       if (room.roster.length >= 6) return { error: "This table is full." };
       const displayName = cleanName(name);
       if (displayName.length < 2)
         return { error: "Enter a name with at least two characters." };
+      newToken = token();
       player = {
         id: randomUUID(),
-        token: token(),
+        tokenHash: secretHash(newToken),
         name: displayName,
         connected: false,
         seat: room.roster.length,
         avatar: validAvatar(avatar),
         lastSocialAt: 0,
+        ip,
+        userAgent: String(socket.handshake?.headers["user-agent"] ?? "").slice(
+          0,
+          200,
+        ),
+        firstSeenAt: Date.now(),
+        lastSeenAt: Date.now(),
       };
       room.roster.push(player);
+      this.save(room);
     }
     player.connected = true;
+    player.ip = ip;
+    player.userAgent = String(
+      socket.handshake?.headers["user-agent"] ?? "",
+    ).slice(0, 200);
+    player.lastSeenAt = Date.now();
     this.attach(socket, room, "player", player.id);
     this.send(room);
     return {
       ok: true,
-      token: player.token,
+      token: newToken ?? existingToken,
       name: player.name,
       seat: player.seat,
     };
@@ -179,6 +415,7 @@ export class RoomManager {
   }
 
   private deal(room: Room, fresh = false) {
+    if (room.config.paused) return { error: "This table is paused." };
     const ready = room.roster.filter((player) => player.connected);
     if (ready.length < 2)
       return { error: "At least two connected players are needed." };
@@ -204,8 +441,8 @@ export class RoomManager {
           name: player.name,
           stack:
             fresh || previous?.phase === "gameover"
-              ? 1500
-              : (stacks.get(player.id) ?? 1500),
+              ? room.config.startingStack
+              : (stacks.get(player.id) ?? room.config.startingStack),
         })),
         () => this.send(room),
       );
@@ -217,6 +454,7 @@ export class RoomManager {
     }
     if (!room.game?.startHand())
       return { error: "This table has a winner. Start a new game." };
+    this.save(room);
     this.send(room);
     return { ok: true };
   }
@@ -225,6 +463,7 @@ export class RoomManager {
     const room = this.get(socket.data.roomId);
     if (!room || socket.data.role !== "player" || !room.game)
       return { error: "Join a table first." };
+    if (room.config.paused) return { error: "This table is paused." };
     const seat = room.game.players.findIndex(
       (player) => player.id === socket.data.playerId,
     );
@@ -252,6 +491,7 @@ export class RoomManager {
     )
       return { error: "Choose one of the available characters." };
     player.avatar = Number(choice);
+    this.save(room);
     this.send(room);
     return { ok: true };
   }
@@ -311,7 +551,133 @@ export class RoomManager {
     return { ok: true };
   }
 
+  adminData() {
+    return {
+      rooms: [...this.rooms.values()].map((room) => ({
+        code: room.id,
+        createdAt: room.createdAt,
+        config: room.config,
+        phase: room.game?.phase ?? "waiting",
+        hand: room.game?.hand ?? 0,
+        pot: room.game?.pot ?? 0,
+        players: room.roster.map((player) => ({
+          id: player.id,
+          name: player.name,
+          seat: player.seat,
+          connected: player.connected,
+          avatar: player.avatar,
+          ip: player.ip,
+          userAgent: player.userAgent,
+          firstSeenAt: player.firstSeenAt,
+          lastSeenAt: player.lastSeenAt,
+          stack:
+            room.game?.players.find((seat) => seat.id === player.id)?.stack ??
+            null,
+        })),
+      })),
+      bans: [...this.bans.values()],
+      database: this.store
+        ? this.databaseOnline
+          ? "connected"
+          : "offline"
+        : "memory",
+    };
+  }
+
+  adminSetConfig(code: string, config: RoomConfig): boolean {
+    const room = this.get(code);
+    if (
+      !room ||
+      !Number.isInteger(config.turnSeconds) ||
+      config.turnSeconds < 15 ||
+      config.turnSeconds > 120 ||
+      !Number.isInteger(config.startingStack) ||
+      config.startingStack < 500 ||
+      config.startingStack > 10_000
+    )
+      return false;
+    room.config = config;
+    room.turnKey = null;
+    this.send(room);
+    return true;
+  }
+
+  adminBanIp(ip: string, reason: string): boolean {
+    if (!isIP(ip)) return false;
+    this.addBan({
+      kind: "ip",
+      value: ip,
+      reason: reason.slice(0, 120),
+      createdAt: Date.now(),
+    });
+    for (const room of this.rooms.values())
+      for (const socket of room.sockets.values())
+        if (
+          socket.data.role === "player" &&
+          room.roster.find((player) => player.id === socket.data.playerId)
+            ?.ip === ip
+        )
+          socket.disconnect(true);
+    return true;
+  }
+
+  adminBanGuest(code: string, playerId: string, reason: string): boolean {
+    const room = this.get(code);
+    const player = room?.roster.find((guest) => guest.id === playerId);
+    if (!room || !player) return false;
+    this.addBan({
+      kind: "guest",
+      value: player.tokenHash,
+      label: `${player.name} · ${room.id}`,
+      reason: reason.slice(0, 120),
+      createdAt: Date.now(),
+    });
+    for (const socket of room.sockets.values())
+      if (socket.data.playerId === playerId) socket.disconnect(true);
+    return true;
+  }
+
+  adminKick(code: string, playerId: string): boolean {
+    const room = this.get(code);
+    if (!room?.roster.some((guest) => guest.id === playerId)) return false;
+    for (const socket of room.sockets.values())
+      if (socket.data.playerId === playerId) socket.disconnect(true);
+    return true;
+  }
+
+  adminUnban(kind: string, value: string): boolean {
+    if (kind !== "ip" && kind !== "guest") return false;
+    const removed = this.bans.delete(`${kind}:${value}`);
+    if (removed) this.saveBans();
+    return removed;
+  }
+
+  private addBan(ban: Ban): void {
+    this.bans.set(`${ban.kind}:${ban.value}`, ban);
+    this.saveBans();
+  }
+
+  private saveBans(): void {
+    this.bansDirty = true;
+    this.bansVersion++;
+    void this.flush();
+  }
+
+  adminClose(code: string): boolean {
+    const room = this.get(code);
+    if (!room) return false;
+    if (room.timer) clearTimeout(room.timer);
+    if (room.autoTimer) clearTimeout(room.autoTimer);
+    this.rooms.delete(room.id);
+    for (const socket of room.sockets.values()) socket.disconnect(true);
+    this.pending.delete(room.id);
+    this.pendingDeletes.add(room.id);
+    void this.flush();
+    return true;
+  }
+
   send(room: Room): void {
+    this.save(room);
     this.scheduleTurn(room);
     this.scheduleAutoDeal(room);
     const game = room.game;
@@ -325,14 +691,18 @@ export class RoomManager {
     for (const socket of room.sockets.values()) {
       const viewerId =
         socket.data.role === "player" ? socket.data.playerId : null;
+      const gameView = game?.snapshot(viewerId) ?? null;
+      if (room.config.paused && gameView) gameView.legal = null;
       const view: RoomView = {
         code: room.id,
+        paused: room.config.paused,
+        startingStack: room.config.startingStack,
         role: socket.data.role,
         playerId: viewerId,
         roster,
         social: room.social,
         joinUrl: this.joinUrl(room),
-        game: game?.snapshot(viewerId) ?? null,
+        game: gameView,
         deadline: room.deadline,
         autoDealAt: room.autoDealAt,
       };
@@ -347,6 +717,8 @@ export class RoomManager {
     const eligible =
       game?.players.filter((player) => player.stack > 0).length ?? 0;
     const canDeal =
+      room.config.autoDeal &&
+      !room.config.paused &&
       ready.length >= 2 &&
       (!game ||
         phase === "waiting" ||
@@ -379,12 +751,38 @@ export class RoomManager {
         phase === "gameover" || (phase === "showdown" && eligible < 2),
       );
     }, delay);
+    room.autoTimer.unref();
     for (const socket of room.sockets.values())
       socket.emit("room:auto-deal", room.autoDealAt);
   }
 
   scheduleTurn(room: Room): void {
     const game = room.game;
+    if (room.config.paused) {
+      if (room.timer) clearTimeout(room.timer);
+      room.timer = null;
+      room.turnKey = null;
+      room.deadline = null;
+      return;
+    }
+    if (room.recoveryUntil) {
+      const allBack = game?.players.every((player) =>
+        room.roster.some((guest) => guest.id === player.id && guest.connected),
+      );
+      if (allBack || Date.now() >= room.recoveryUntil) {
+        room.recoveryUntil = null;
+      } else {
+        if (room.timer) clearTimeout(room.timer);
+        room.turnKey = null;
+        room.deadline = room.recoveryUntil;
+        room.timer = setTimeout(() => {
+          room.recoveryUntil = null;
+          this.send(room);
+        }, room.recoveryUntil - Date.now());
+        room.timer.unref();
+        return;
+      }
+    }
     const key =
       game && game.turn >= 0
         ? `${game.hand}:${game.phase}:${game.turn}:${game.history.length}`
@@ -392,19 +790,20 @@ export class RoomManager {
     if (room.turnKey === key) return;
     if (room.timer) clearTimeout(room.timer);
     room.turnKey = key;
-    room.deadline = key ? Date.now() + 35000 : null;
+    room.deadline = key ? Date.now() + room.config.turnSeconds * 1000 : null;
     if (!key || !game) return;
     const player = game.players[game.turn];
     const connected = room.roster.find(
       (item) => item.id === player.id,
     )?.connected;
-    const wait = connected ? 35000 : 2500;
+    const wait = connected ? room.config.turnSeconds * 1000 : 2500;
     room.deadline = Date.now() + wait;
     room.timer = setTimeout(() => {
       if (room.turnKey !== key) return;
       const legal = game.legalActions(game.turn);
       if (legal) game.act(game.turn, legal.canCheck ? "check" : "fold");
     }, wait);
+    room.timer.unref();
     for (const socket of room.sockets.values())
       socket.emit("room:deadline", room.deadline);
   }
@@ -413,11 +812,14 @@ export class RoomManager {
     for (const [id, room] of this.rooms)
       if (
         !room.sockets.size &&
-        Date.now() - room.createdAt > 8 * 60 * 60 * 1000
+        Date.now() - room.lastActiveAt > 8 * 60 * 60 * 1000
       ) {
         if (room.timer) clearTimeout(room.timer);
         if (room.autoTimer) clearTimeout(room.autoTimer);
         this.rooms.delete(id);
+        this.pending.delete(id);
+        this.pendingDeletes.add(id);
+        void this.flush();
       }
   }
 }

@@ -27,6 +27,23 @@ export interface GamePlayer {
   lastAction: string;
 }
 
+export interface PokerGameState {
+  players: GamePlayer[];
+  dealer: number;
+  hand: number;
+  phase: Phase;
+  turn: number;
+  board: Card[];
+  deck: Card[];
+  pot: number;
+  history: HistoryEntry[];
+  winners: Winner[];
+  currentBet: number;
+  minRaise: number;
+  shownSeat: number | null;
+  muckLocked: boolean;
+}
+
 export const SMALL_BLIND = 10;
 export const BIG_BLIND = 20;
 
@@ -77,6 +94,34 @@ export class PokerGame {
     this.shownSeat = null;
     this.muckLocked = false;
     this.currentBet = 0;
+  }
+
+  checkpoint(): PokerGameState {
+    return {
+      players: this.players,
+      dealer: this.dealer,
+      hand: this.hand,
+      phase: this.phase,
+      turn: this.turn,
+      board: this.board,
+      deck: this.deck,
+      pot: this.pot,
+      history: this.history,
+      winners: this.winners,
+      currentBet: this.currentBet,
+      minRaise: this.minRaise,
+      shownSeat: this.shownSeat,
+      muckLocked: this.muckLocked,
+    };
+  }
+
+  static restore(
+    state: PokerGameState,
+    onChange: (game: PokerGame) => void,
+  ): PokerGame {
+    const game = new PokerGame(state.players, onChange);
+    Object.assign(game, state);
+    return game;
   }
 
   next(seat: number): number {

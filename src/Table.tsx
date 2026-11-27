@@ -121,6 +121,11 @@ export function Table({
           </button>
         </div>
       </header>
+      {room.paused && (
+        <p className="table-paused" role="status">
+          Table paused by admin
+        </p>
+      )}
       <div className="game-stage">
         {chipFx && (
           <div
@@ -186,6 +191,7 @@ export function Table({
               player={player}
               seat={index}
               game={game}
+              startingStack={room.startingStack}
               revealCards={showdownCardsVisible}
               avatar={
                 room.roster.find((item) => item.id === player?.id)?.avatar ??

@@ -15,6 +15,24 @@ Open the address printed by the server on the TV, then create a table. Players o
 
 For active development, use `npm run dev`. To verify changes, run `npm run build`, `npm test` and `npm run test:e2e`.
 
+## Optional PostgreSQL persistence
+
+Set `DATABASE_URL` to a PostgreSQL connection string before starting the server. The server creates `velvet_ace_rooms` and `velvet_ace_moderation` tables automatically and saves a private checkpoint after room and game changes. It restores rooms active within the last eight hours on startup, including chip stacks, reconnect identities, and hands in progress. Existing table and phone links continue to work after a restart. A recovered hand gives players up to one minute to reconnect before turn timeouts resume.
+
+Without `DATABASE_URL`, rooms remain in memory. If PostgreSQL is unavailable, play continues in memory and the server retries saving the latest checkpoint every five seconds. A restart during an outage can recover only the last checkpoint that reached PostgreSQL. Use one server process for a given database; this implementation does not coordinate multiple game servers.
+
+The database contains the full private game checkpoint, including hole cards and the remaining deck. Restrict access to it. Host keys and guest reconnect tokens are stored as hashes, while the original links and tokens stay with the host and players. Chat, online status, sockets, and timers are not saved.
+
+## Render hosting
+
+Deploy this repository as a **single-instance Node web service**. The included `render.yaml` uses `npm ci && npm run build`, starts `node dist/server/index.js`, and checks `/api/health`. For an existing Render service, use those same build and start commands. The server binds Render's `PORT` on `0.0.0.0` and uses `RENDER_EXTERNAL_URL` for QR and table links. Set `PUBLIC_BASE_URL` to your HTTPS custom domain if you use one.
+
+Create a Render PostgreSQL database in the same region and set `DATABASE_URL` on the web service to its **internal** connection URL. The database is optional, but without it every restart or idle spin-down loses rooms. Set a strong `ADMIN_PASSWORD` secret in Render to enable `/admin`; the username defaults to `admin` and can be changed with `ADMIN_USER`. The admin page uses HTTPS Basic authentication. Keep this password private.
+
+The admin page shows tables, guests, stacks, last IP and browser details. It can pause play, lock new joins, toggle auto-deal, change turn seconds and the starting stack for fresh games, kick or ban a guest, ban an IP, and close a table. Room configuration and bans are saved with PostgreSQL when available. A guest ban blocks that reconnect identity; a person can create a new guest identity. IP bans are best effort because clients are behind Render's proxy and some players share an IP.
+
+Render's Free web services can sleep after 15 minutes without inbound traffic, and Free PostgreSQL databases expire after 30 days. Use a persistent PostgreSQL plan if room recovery matters beyond that period. This game runs in one server process; do not enable horizontal scaling. A deploy interrupts live WebSocket connections, and clients reconnect to the saved room checkpoint. A database outage or an abrupt process stop can leave the latest in-memory action unsaved.
+
 ## Architecture
 
 - `src/` — React, strict TypeScript, SCSS, TV and phone views.
@@ -24,7 +42,7 @@ For active development, use `npm run dev`. To verify changes, run `npm run build
 - `server/index.ts` — HTTP, QR generation and Socket.IO transport.
 - `public/assets/` — original generated casino, dealer and avatar artwork.
 
-The browser and server ship from one repo. Their boundary makes a later mobile wrapper straightforward. Rooms and guest identities currently live in memory and disappear when the server restarts. This is a local network game; hosting it on the public internet needs TLS, persistent identities and abuse controls.
+The browser and server ship from one repo. Their boundary makes a later mobile wrapper straightforward. Rooms and guest identities live in memory unless optional PostgreSQL persistence is configured. Public hosting uses guest identities and private room links; it is intended for small private games rather than open matchmaking.
 
 ## Scope
 
