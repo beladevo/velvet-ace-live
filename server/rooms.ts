@@ -3,6 +3,7 @@ import { isIP } from "node:net";
 import type { Socket } from "socket.io";
 import type {
   ActionType,
+  FlopInsight,
   RoomView,
   SocialEvent,
   SocialKind,
@@ -15,6 +16,7 @@ import {
   type RoomStore,
   type SavedRoom,
 } from "./persistence.js";
+import { createFlopInsight, insightKey } from "./insight.js";
 
 interface RosterPlayer {
   id: string;
@@ -55,6 +57,7 @@ interface Room {
   social: SocialEvent[];
   recoveryUntil: number | null;
   config: RoomConfig;
+  insightCache: Map<string, { key: string; insight: FlopInsight }>;
 }
 
 const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -85,6 +88,7 @@ export class RoomManager {
   private bans = new Map<string, Ban>();
   private bansDirty = false;
   private bansVersion = 0;
+  private insightEnabled = process.env.VIP_FLOP_INSIGHT_ENABLED === "true";
   constructor(
     publicBaseUrl: string,
     private store?: RoomStore,
@@ -136,6 +140,7 @@ export class RoomManager {
         social: [],
         recoveryUntil: saved.game ? Date.now() + 60_000 : null,
         config: saved.config ?? defaultConfig(),
+        insightCache: new Map(),
       };
       room.game = saved.game
         ? PokerGame.restore(saved.game, () => this.send(room))
@@ -273,6 +278,7 @@ export class RoomManager {
       social: [],
       recoveryUntil: null,
       config: defaultConfig(),
+      insightCache: new Map(),
     };
     this.rooms.set(id, room);
     this.save(room);
@@ -693,6 +699,15 @@ export class RoomManager {
         socket.data.role === "player" ? socket.data.playerId : null;
       const gameView = game?.snapshot(viewerId) ?? null;
       if (room.config.paused && gameView) gameView.legal = null;
+      const vip = room.roster.find((player) => player.id === viewerId);
+      let insight: FlopInsight | null = null;
+      if (this.insightEnabled && vip?.name === "beladev" && gameView) {
+        const key = insightKey(gameView, vip.id);
+        const cached = room.insightCache.get(vip.id);
+        insight = cached?.key === key ? cached.insight : createFlopInsight(gameView, vip.id);
+        if (insight && cached?.key !== key)
+          room.insightCache.set(vip.id, { key, insight });
+      }
       const view: RoomView = {
         code: room.id,
         paused: room.config.paused,
@@ -703,6 +718,7 @@ export class RoomManager {
         social: room.social,
         joinUrl: this.joinUrl(room),
         game: gameView,
+        insight,
         deadline: room.deadline,
         autoDealAt: room.autoDealAt,
       };

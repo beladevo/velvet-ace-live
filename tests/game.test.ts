@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { PokerGame } from "../server/game.js";
 import { evaluate, freshDeck } from "../server/cards.js";
+import { createFlopInsight, insightKey } from "../server/insight.js";
 
 const seats = (n = 4) =>
   Array.from({ length: n }, (_, index) => ({
@@ -36,6 +37,25 @@ test("private cards never enter the table or another player snapshot", () => {
   assert.ok(table.players.every((player) => player.cards === null));
   assert.equal(viewer.players[0].cards.length, 2);
   assert.ok(viewer.players.slice(1).every((player) => player.cards === null));
+});
+
+test("flop insight is stable and ignores opponents' dealt cards", () => {
+  const game = new PokerGame(seats(2));
+  game.startHand();
+  game.phase = "flop";
+  game.board = [c("Q", "♠"), c("8", "♠"), c("2", "♥")];
+  game.players[0].cards = [c("Q", "♥"), c("A", "♠")];
+  const view = game.snapshot("player-0");
+  const insight = createFlopInsight(view, "player-0");
+  assert.equal(insight?.hand, "One pair");
+  assert.ok(insight!.winOrTiePercent >= 0 && insight!.winOrTiePercent <= 100);
+  game.players[1].cards = [c("Q", "♦"), c("Q", "♣")];
+  assert.deepEqual(createFlopInsight(game.snapshot("player-0"), "player-0"), insight);
+  assert.equal(createFlopInsight(game.snapshot(), "player-0"), null);
+  const activeKey = insightKey(game.snapshot("player-0"), "player-0");
+  game.players[0].folded = true;
+  assert.notEqual(insightKey(game.snapshot("player-0"), "player-0"), activeKey);
+  assert.equal(createFlopInsight(game.snapshot("player-0"), "player-0"), null);
 });
 
 test("uncontested hands stay mucked unless the winner chooses Show", () => {

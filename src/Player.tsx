@@ -229,6 +229,33 @@ export function Player({
               : "PRESS AND HOLD TO PEEK"
             : "WAITING FOR THE DEAL"}
         </span>
+        {room.insight && (
+          <details className="flop-insight" key={`${game?.hand}-${game?.phase}`}>
+            <summary>
+              <strong>VIEW PRIVATE HAND INSIGHT</strong>
+              <span aria-hidden="true">⌄</span>
+            </summary>
+            <div className="insight-result">
+              <strong>{room.insight.hand}</strong>
+              <span>
+                <strong>
+                  {room.insight.winOrTiePercent === 0
+                    ? "<5%"
+                    : room.insight.winOrTiePercent === 100
+                      ? ">95%"
+                      : `~${room.insight.winOrTiePercent}%`}
+                </strong>
+                <small>WIN OR TIE</small>
+              </span>
+            </div>
+            <p>{room.insight.explanation}</p>
+            <small className="insight-assumption">
+              Estimate against {room.insight.opponents} unknown{" "}
+              {room.insight.opponents === 1 ? "hand" : "hands"} if everyone stays
+              to showdown. It does not predict betting or folds.
+            </small>
+          </details>
+        )}
       </section>
       <section className="action-panel">
         {legal ? (

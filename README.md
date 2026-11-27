@@ -33,6 +33,10 @@ The admin page shows tables, guests, stacks, last IP and browser details. It can
 
 Render's Free web services can sleep after 15 minutes without inbound traffic, and Free PostgreSQL databases expire after 30 days. Use a persistent PostgreSQL plan if room recovery matters beyond that period. This game runs in one server process; do not enable horizontal scaling. A deploy interrupts live WebSocket connections, and clients reconnect to the saved room checkpoint. A database outage or an abrupt process stop can leave the latest in-memory action unsaved.
 
+## Optional private hand insight
+
+Set `VIP_FLOP_INSIGHT_ENABLED=true` on the server to show a private flop, turn and river hand insight to the guest named exactly `beladev`. It estimates the chance to win or tie at showdown against unknown hands; it never uses opponents' dealt cards or the actual remaining deck. Guest names are self-entered, so this is a trial flag rather than secure VIP authentication.
+
 ## Architecture
 
 - `src/` — React, strict TypeScript, SCSS, TV and phone views.

@@ -49,6 +49,12 @@ export interface GameView {
   legal: LegalActions | null;
   canShow: boolean;
 }
+export interface FlopInsight {
+  hand: string;
+  explanation: string;
+  winOrTiePercent: number;
+  opponents: number;
+}
 export interface RosterView {
   id: string;
   name: string;
@@ -76,6 +82,7 @@ export interface RoomView {
   social: SocialEvent[];
   joinUrl: string;
   game: GameView | null;
+  insight: FlopInsight | null;
   deadline: number | null;
   autoDealAt: number | null;
 }

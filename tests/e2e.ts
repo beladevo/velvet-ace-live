@@ -12,15 +12,22 @@ const child = spawn(process.execPath, ["dist/server/index.js"], {
     HOST: "127.0.0.1",
     RENDER_EXTERNAL_URL: base,
     ADMIN_PASSWORD: "e2e-admin-password",
+    PUBLIC_BASE_URL: base,
+    VIP_FLOP_INSIGHT_ENABLED: "true",
   },
   stdio: ["ignore", "pipe", "pipe"],
+});
+let serverError = "";
+child.stderr.on("data", (chunk) => {
+  serverError += String(chunk);
 });
 const sockets = [];
 const state = new Map();
 const waitFor = async (predicate, label, timeout = 5000) => {
   const until = Date.now() + timeout;
   while (!(await predicate())) {
-    if (Date.now() > until) throw new Error(`Timed out waiting for ${label}`);
+    if (Date.now() > until)
+      throw new Error(`Timed out waiting for ${label}${serverError ? `: ${serverError}` : ""}`);
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
 };
@@ -66,7 +73,7 @@ try {
   const sam = await connect("sam");
   const a = await alex.emitWithAck("player:join", {
     code: room.code,
-    name: "Alex",
+    name: "beladev",
     avatar: 4,
   });
   const b = await sam.emitWithAck("player:join", {
@@ -128,6 +135,9 @@ try {
   assert.equal(aView.players[1].cards, null);
   assert.equal(bView.players[0].cards, null);
   assert.equal(bView.players[1].cards.length, 2);
+  assert.equal(state.get("host").insight, null);
+  assert.equal(state.get("alex").insight, null);
+  assert.equal(state.get("sam").insight, null);
   assert.deepEqual(await sam.emitWithAck("player:action", { type: "fold" }), {
     error: "That action is not available now.",
   });
@@ -145,6 +155,29 @@ try {
     state.get("kim").game.players.some((player) => player.name === "Kim"),
     false,
   );
+  assert.deepEqual(await sam.emitWithAck("player:action", { type: "check" }), {
+    ok: true,
+  });
+  await waitFor(
+    () => state.get("alex")?.game?.phase === "flop",
+    "flop insight",
+  );
+  assert.ok(state.get("alex").insight);
+  assert.equal(state.get("alex").insight.opponents, 1);
+  assert.equal(state.get("host").insight, null);
+  assert.equal(state.get("sam").insight, null);
+  assert.equal(state.get("kim").insight, null);
+  const reconnected = await connect("reconnected");
+  assert.equal(
+    (await reconnected.emitWithAck("player:join", {
+      code: room.code,
+      name: "Someone else",
+      token: a.token,
+    })).ok,
+    true,
+  );
+  await waitFor(() => state.get("reconnected")?.insight, "VIP reconnect");
+  assert.deepEqual(state.get("reconnected").insight, state.get("alex").insight);
   assert.deepEqual(await sam.emitWithAck("player:action", { type: "fold" }), {
     ok: true,
   });
@@ -203,7 +236,7 @@ try {
   assert.equal(adminPage.status, 200);
   const adminHtml = await adminPage.text();
   assert.match(adminHtml, new RegExp(room.code));
-  assert.match(adminHtml, /Alex/);
+  assert.match(adminHtml, /beladev/);
   assert.match(adminHtml, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
   assert.equal(adminHtml.includes("<script>alert(1)</script>"), false);
   const csrf = /name="csrf" value="([a-f0-9]+)"/.exec(adminHtml)?.[1];
@@ -305,7 +338,7 @@ try {
     404,
   );
   console.log(
-    "E2E passed: game flow, private cards, admin access, controls and bans.",
+    "E2E passed: game flow, private cards and insight, admin access, controls and bans.",
   );
 } finally {
   sockets.forEach((socket) => socket.disconnect());
